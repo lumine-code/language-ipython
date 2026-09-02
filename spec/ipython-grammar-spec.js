@@ -95,8 +95,8 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("exposes module assignments to symbol consumers", async () => {
     await setUp("doc = factory()\n%pwd\nlater = 2\n");
-    const layer = languageMode.rootLanguageLayer;
-    const captures = layer.queries.tagsQuery.captures(layer.tree.rootNode);
+    const groups = await languageMode.getQueryCaptureGroups("tagsQuery");
+    const captures = groups.flatMap((group) => group.captures);
     const definitions = captures.filter((capture) => capture.name === "definition.constant");
     expect(definitions.map((capture) => capture.node.text)).toEqual([
       "doc = factory()",
@@ -108,8 +108,8 @@ describe("IPython Tree-sitter grammar", () => {
     await setUp(
       "# %% Setup\n# %%% [markdown] Details\n# %% markdown Legacy\n# %% markdown\n# %%\n# %% mda title\nvalue = 1\n",
     );
-    const layer = languageMode.rootLanguageLayer;
-    const captures = layer.queries.tagsQuery.captures(layer.tree.rootNode);
+    const groups = await languageMode.getQueryCaptureGroups("tagsQuery");
+    const captures = groups.flatMap((group) => group.captures);
 
     expect(
       captures
