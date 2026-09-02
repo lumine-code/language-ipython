@@ -159,21 +159,17 @@ describe("IPython Tree-sitter grammar", () => {
     );
   });
 
-  it("keeps cell markers in comment scope while highlighting their parts", async () => {
+  it("styles entire cell markers as comments", async () => {
     await setUp("# %%% [markdown] Overview\n");
 
     const commentScope = editor.scopeDescriptorForBufferPosition([0, 0]).toString();
     expect(commentScope).toContain("comment.line.number-sign.cell-marker.ipython");
     expect(commentScope).toContain("punctuation.definition.comment.python");
-    expect(editor.scopeDescriptorForBufferPosition([0, 3]).toString()).toContain(
-      "punctuation.section.cell-marker.ipython",
-    );
-    expect(editor.scopeDescriptorForBufferPosition([0, 7]).toString()).toContain(
-      "storage.modifier.cell-marker.ipython",
-    );
-    expect(editor.scopeDescriptorForBufferPosition([0, 18]).toString()).toContain(
-      "entity.name.section.cell-marker.ipython",
-    );
+    for (const column of [3, 7, 18]) {
+      expect(editor.scopeDescriptorForBufferPosition([0, column]).getScopesArray().at(-1)).toBe(
+        "comment.line.number-sign.cell-marker.ipython",
+      );
+    }
   });
 
   it("keeps IPython markers compatible with the jupyter.cells service", async () => {
