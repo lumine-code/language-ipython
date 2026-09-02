@@ -1,0 +1,24 @@
+{
+  "name": "IPython",
+  "scopeName": "source.python.ipy",
+  "type": "tree-sitter",
+  "parser": "tree-sitter-ipython",
+  "injectionNames": ["ipython", "ipy"],
+  "firstLineRegex": [
+    "^#![ \\t]*/.*\\bipython[\\d\\.]*\\b",
+    "vim\\b.*\\bset\\b.*\\b(filetype|ft|syntax)=ipython"
+  ],
+  "fileTypes": ["ipy"],
+  "comments": {
+    "start": "# "
+  },
+  "treeSitter": {
+    "parserSource": "github:lumine-code/tree-sitter-ipython#007e1afaaa6cffe5a070e9c6ad09f80acc9b895b",
+    "wasmBuildTool": "tree-sitter-cli#v0.26.13",
+    "grammar": "ipython.wasm",
+    "highlightsQuery": ["python-highlights.scm", "ipython-highlights.scm"],
+    "tagsQuery": "ipython-tags.scm",
+    "foldsQuery": "ipython-folds.scm",
+    "indentsQuery": "ipython-indents.scm"
+  }
+}

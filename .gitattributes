@@ -1,0 +1,2 @@
+# Grammar wasm files are binary; never attempt text merges or EOL conversion
+*.wasm binary

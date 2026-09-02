@@ -1,0 +1,59 @@
+{
+  "name": "language-ipython",
+  "author": "lumine-code",
+  "version": "1.0.0",
+  "main": "lib/main",
+  "files": [
+    "grammars",
+    "lib",
+    "spec"
+  ],
+  "description": "IPython language support.",
+  "keywords": [
+    "jupyter",
+    "notebook",
+    "magics",
+    "shell-escape",
+    "interactive-computing",
+    "tree-sitter"
+  ],
+  "repository": "https://github.com/lumine-code/language-ipython",
+  "bugs": {
+    "url": "https://github.com/lumine-code/language-ipython/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "lumine": "^1.0.0",
+    "node": ">=24"
+  },
+  "specPackages": [
+    "jupyter-cells",
+    "symbol-tree-sitter"
+  ],
+  "scripts": {
+    "test": "lumine --test spec",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "consumedServices": {
+    "hyperlink.injection": {
+      "versions": {
+        "^1.0.0": "consumeHyperlinkInjection"
+      }
+    },
+    "todo.injection": {
+      "versions": {
+        "^1.0.0": "consumeTodoInjection"
+      }
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-n": "^18.3.0",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6"
+  }
+}
