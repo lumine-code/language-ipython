@@ -8,7 +8,7 @@ describe(`${PACKAGE_NAME} Tree-sitter queries`, () => {
 
   beforeEach(async () => {
     jasmine.useRealClock();
-    await lumine.packages.activatePackage(PACKAGE_NAME);
+    await lumine.packages.activatePackage(path.resolve(__dirname, ".."));
 
     const packageDir = path.resolve(__dirname, "..");
     grammars = lumine.grammars
