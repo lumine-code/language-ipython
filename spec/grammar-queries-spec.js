@@ -8,9 +8,8 @@ describe(`${PACKAGE_NAME} Tree-sitter queries`, () => {
 
   beforeEach(async () => {
     jasmine.useRealClock();
-    await lumine.packages.activatePackage(path.resolve(__dirname, ".."));
-    grammars = lumine.grammars
-      .getGrammars()
+    const pack = await lumine.packages.activatePackage(path.resolve(__dirname, ".."));
+    grammars = pack.grammars
       .filter((grammar) => grammar.constructor.name === "TreeSitterGrammar")
       .filter((grammar) => grammar.packageName === PACKAGE_NAME);
   });
