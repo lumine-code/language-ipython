@@ -1,2 +1,5 @@
 node_modules
 package-lock.json
+
+# Scopes are asserted at exact columns; reformatting breaks the assertions.
+spec/fixtures

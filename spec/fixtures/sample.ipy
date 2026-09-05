@@ -1,0 +1,26 @@
+#!/usr/bin/env ipython
+# %% Setup
+from pathlib import Path
+
+import numpy as np
+
+DATA_URL = "https://example.com/data.csv"
+cache = Path("results")
+cache.mkdir(exist_ok=True)
+
+%load_ext autoreload
+%autoreload 2
+%matplotlib inline
+!python --version
+
+# %% [markdown] Analysis TODO
+# Explore the sample and keep its cell markers visible in the symbol list.
+
+# %% Statistics
+values = np.array([1, 2, 3, 5, 8])
+mean = values.mean()
+mean?
+np.mean??
+
+%%timeit -n 3
+values.mean()
