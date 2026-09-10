@@ -26,9 +26,13 @@
 
 ; These methods have magic interpretation by python and are generally called
 ; indirectly through syntactic constructs.
-((identifier) @support.function.magic.python
+(call
+  function: [
+    (identifier) @support.function.magic.python
+    (attribute
+      attribute: (identifier) @support.function.magic.python)
+  ]
   (#match? @support.function.magic.python "^__(abs|add|and|bool|bytes|call|cmp|coerce|complex|contains|del|delattr|delete|delitem|delslice|dir|div|divmod|enter|eq|exit|float|floordiv|format|ge|get|getattr|getattribute|getitem|getslice|gt|hash|hex|iadd|iand|idiv|ifloordiv|ilshift|imatmul|imod|imul|index|init|instancecheck|int|invert|ior|ipow|irshift|isub|iter|itruediv|ixor|le|len|length_hint|long|lshift|lt|matmul|missing|mod|mul|ne|neg|next|new|nonzero|oct|or|pos|pow|radd|rand|rdiv|rdivmod|repr|reversed|rfloordiv|rlshift|rmatmul|rmod|rmul|ror|round|rpow|rrshift|rshift|rsub|rtruediv|rxor|set|setattr|setitem|setslice|str|sub|subclasscheck|truediv|unicode|xor)__$")
-  (#is? test.descendantOfType call)
   (#set! capture.final true))
 
 ; Magic variables which a class/module may have.
@@ -47,7 +51,7 @@
     (#set! capture.final true))
 
 (call
-  (identifier) @support.function.builtin.python
+  function: (identifier) @support.function.builtin.python
   (#match? @support.function.builtin.python "^(__import__|abs|all|any|ascii|bin|bool|bytearray|bytes|callable|chr|classmethod|compile|complex|delattr|dict|dir|divmod|enumerate|eval|exec|filter|float|format|frozenset|getattr|globals|hasattr|hash|help|hex|id|input|int|isinstance|issubclass|iter|len|list|locals|map|max|memoryview|min|next|object|oct|open|ord|pow|print|property|range|repr|reversed|round|set|setattr|slice|sorted|staticmethod|str|sum|super|tuple|type|vars|zip|file|long|raw_input|reduce|reload|unichr|unicode|xrange|apply|buffer|coerce|intern|execfile)$")
   (#set! capture.final true))
 
@@ -139,7 +143,7 @@
 ; --------------------
 
 (function_definition
-  (identifier) @entity.name.function.magic.python
+  name: (identifier) @entity.name.function.magic.python
   (#match? @entity.name.function.magic.python "^__(?:abs|add|and|bool|bytes|call|cmp|coerce|complex|contains|del|delattr|delete|delitem|delslice|dir|div|divmod|enter|eq|exit|float|floordiv|format|ge|get|getattr|getattribute|getitem|getslice|gt|hash|hex|iadd|iand|idiv|ifloordiv|ilshift|imatmul|imod|imul|index|init|instancecheck|int|invert|ior|ipow|irshift|isub|iter|itruediv|ixor|le|len|length_hint|long|lshift|lt|matmul|missing|mod|mul|ne|neg|next|new|nonzero|oct|or|pos|pow|radd|rand|rdiv|rdivmod|repr|reversed|rfloordiv|rlshift|rmatmul|rmod|rmul|ror|round|rpow|rrshift|rshift|rsub|rtruediv|rxor|set|setattr|setitem|setslice|str|sub|subclasscheck|truediv|unicode|xor)__$"))
 
 (attribute
@@ -169,7 +173,8 @@
 ; COMMENTS
 ; ========
 
-(comment) @comment.line.number-sign.python
+((comment) @comment.line.number-sign.python
+  (#set! adjust.endBeforeFirstMatchOf "\\r?$"))
 ((comment) @punctuation.definition.comment.python
   (#set! adjust.endAfterFirstMatchOf "^#"))
 
@@ -213,21 +218,18 @@
 ((string) @string.quoted.single.single-line.python
   (#match? @string.quoted.single.single-line.python "^[bBrRuU]*\'"))
 
-(string_content (escape_sequence) @constant.character.escape.python)
+((escape_sequence) @constant.character.escape.python
+  (#is? test.childOfType string_content))
 
 (interpolation
   "{" @punctuation.section.embedded.begin.python
   "}" @punctuation.section.embedded.end.python) @meta.embedded.line.interpolation.python
 
-(string
-  _ @punctuation.definition.string.begin.python
-  (#is? test.first true))
+(string_start) @punctuation.definition.string.begin.python
 
-(string
-  _ @punctuation.definition.string.end.python
-  (#is? test.last true))
+(string_end) @punctuation.definition.string.end.python
 
-(string (string_start) @storage.type.string.python
+((string_start) @storage.type.string.python
   (#match? @storage.type.string.python "^[bBfFtTrRuU]+")
   (#set! adjust.endAfterFirstMatchOf "^[bBfFtTrRuU]+"))
 
@@ -303,20 +305,20 @@
 ; VARIABLES
 ; =========
 
-(parameters
-  (identifier) @variable.parameter.function.python)
+((identifier) @variable.parameter.function.python
+  (#is? test.childOfType parameters))
 
-(parameters
-  (default_parameter
-    (identifier) @variable.parameter.function.python))
+(default_parameter
+  name: (identifier) @variable.parameter.function.python
+  (#is? test.typeAt "parent.parent parameters"))
 
-(parameters
-  (list_splat_pattern
-    (identifier) @variable.parameter.function.python))
+(list_splat_pattern
+  (identifier) @variable.parameter.function.python
+  (#is? test.typeAt "parent.parent parameters"))
 
-(parameters
-  (dictionary_splat_pattern
-    (identifier) @variable.parameter.function.python))
+(dictionary_splat_pattern
+  (identifier) @variable.parameter.function.python
+  (#is? test.typeAt "parent.parent parameters"))
 
 
 ; The "foo" in `except TypeError as foo:`.
@@ -425,7 +427,7 @@
 "is not" @keyword.operator.logical.is-not.python
 
 (call
-  (identifier) @keyword.other._TEXT_.python
+  function: (identifier) @keyword.other._TEXT_.python
   (#match? @keyword.other._TEXT_.python "^(exec|print)$")
   (#set! capture.final true))
 
@@ -438,11 +440,9 @@
 ; ===========
 
 ("[" @punctuation.definition.subscript.begin.bracket.square.python
-  (#is? test.childOfType subscript)
-  (#is? test.first true))
+  (#is? test.childOfType subscript))
 ("]" @punctuation.definition.subscript.end.bracket.square.python
-  (#is? test.childOfType subscript)
-  (#is? test.last true))
+  (#is? test.childOfType subscript))
 
 ("[" @punctuation.definition.list.begin.bracket.square.python
   (#is? test.childOfType list)
