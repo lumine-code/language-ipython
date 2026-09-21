@@ -14,8 +14,7 @@ describe("IPython Tree-sitter grammar", () => {
     for (let i = 0; i < 25; i++) await Promise.resolve();
   };
 
-  const packagePathFor = (name) =>
-    lumine.packages.resolvePackagePath(name) ?? path.resolve(__dirname, "..", "..", name);
+  const packagePathFor = (name) => path.resolve(__dirname, "..", "..", name);
 
   beforeEach(async () => {
     await lumine.packages.activatePackage("language-ipython");

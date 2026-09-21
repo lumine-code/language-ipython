@@ -1,4 +1,5 @@
 const path = require("path");
+const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
 
 // The fixture beside this file is a plain sample of the language — the file to
 // open when you want to look at the highlighting rather than assert on it. This
@@ -7,7 +8,7 @@ const path = require("path");
 
 describe("IPython sample fixture", () => {
   beforeEach(async () => {
-    await lumine.packages.activatePackage("language-python");
+    await lumine.packages.activatePackage(packagePath("language-python"));
     await lumine.packages.activatePackage("language-ipython");
   });
 

@@ -3,10 +3,11 @@ const path = require("path");
 const mainModule = require("../lib/main");
 
 const packageRoot = path.resolve(__dirname, "..");
+const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
 
 describe("language-ipython package", () => {
   beforeEach(async () => {
-    await lumine.packages.activatePackage("language-python");
+    await lumine.packages.activatePackage(packagePath("language-python"));
     await lumine.packages.activatePackage("language-ipython");
   });
 
@@ -34,7 +35,7 @@ describe("language-ipython package", () => {
   });
 
   it("inherits scoped Python snippets", async () => {
-    const { mainModule } = await lumine.packages.activatePackage("snippets");
+    const { mainModule } = await lumine.packages.activatePackage(packagePath("snippets"));
     await mainModule.waitForSnippetsLoaded();
     const snippets = mainModule.provideSnippets().snippetsForScopes([".source.python.ipy"]);
 
