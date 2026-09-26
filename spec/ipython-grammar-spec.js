@@ -171,6 +171,19 @@ describe("IPython Tree-sitter grammar", () => {
     }
   });
 
+  it("highlights TODO markers in comments and cell titles", async () => {
+    await lumine.packages.activatePackage("language-todo");
+    await setUp("# TODO comment\n# %% TODO title\n");
+    await languageMode.atGrammarSettlement();
+
+    expect(editor.scopeDescriptorForBufferPosition([0, 2]).getScopesArray()).toContain(
+      "storage.type.class.todo",
+    );
+    expect(editor.scopeDescriptorForBufferPosition([1, 5]).getScopesArray()).toContain(
+      "storage.type.class.todo",
+    );
+  });
+
   it("keeps IPython markers compatible with the jupyter.cells service", async () => {
     const { mainModule } = await lumine.packages.activatePackage(packagePathFor("jupyter-cells"));
     const cells = mainModule.provideJupyterCells();
