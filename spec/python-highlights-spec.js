@@ -65,8 +65,7 @@ describe("IPython base Python highlights", () => {
       .getScopesArray();
   }
 
-  function rawCaptures(startRow, endRow) {
-    const layer = languageMode.rootLanguageLayer;
+  async function rawCaptures(startRow, endRow) {
     const options =
       startRow == null
         ? undefined
@@ -74,7 +73,8 @@ describe("IPython base Python highlights", () => {
             startPosition: new Point(startRow, 0),
             endPosition: new Point(endRow, 0),
           };
-    return layer.queries.highlightsQuery.captures(layer.tree.rootNode, options);
+    const groups = await editor.getGrammarQueryCaptureGroups("highlightsQuery", options);
+    return groups.find(({ grammar }) => grammar === editor.getGrammar())?.captures ?? [];
   }
 
   it("keeps unbounded containers leaf-rooted", () => {
@@ -166,7 +166,7 @@ mapping = {
 
     for (const { startRow, endRow, family, expected } of ranges) {
       const expectedNames = new Set(expected.map(([name]) => name));
-      const captures = rawCaptures(startRow, endRow).filter(
+      const captures = (await rawCaptures(startRow, endRow)).filter(
         (capture) =>
           capture.name.startsWith("punctuation.") &&
           (family ? capture.name.includes(family) : expectedNames.has(capture.name)),
@@ -215,17 +215,23 @@ def __len__(self):
     expect(scopesAt(8, "len")).not.toContain("support.function.builtin.python");
     expect(scopesAt(11, "__len__")).toContain("entity.name.function.magic.python");
 
-    const legacyCaptures = rawCaptures().filter(
-      (capture) => capture.name === "keyword.other._TEXT_.python" && capture.node.text === "exec",
+    const resolvedCaptures = (await rawCaptures()).filter(
+      (capture) =>
+        capture.name === "support.function.builtin.python" && capture.node.text === "exec",
     );
-    expect(legacyCaptures.map((capture) => capture.node.startPosition.row)).toEqual([9]);
+    expect(resolvedCaptures.map((capture) => capture.node.startPosition.row)).toEqual([9]);
   });
 
   it("uses the rebuilt parser that excludes CR from format specifiers", async () => {
     await setUp('value = f"""{item:>10\r\n}"""');
 
-    const formatSpecifier =
-      languageMode.rootLanguageLayer.tree.rootNode.descendantsOfType("format_specifier")[0];
+    let formatSpecifier = editor.getSyntaxNodeAtBufferPosition([
+      0,
+      editor.lineTextForBufferRow(0).indexOf(":"),
+    ]);
+    while (formatSpecifier && formatSpecifier.type !== "format_specifier") {
+      formatSpecifier = formatSpecifier.parent;
+    }
     expect(formatSpecifier.text).toBe(":>10");
     expect(formatSpecifier.endPosition).toEqual(
       new Point(0, editor.lineTextForBufferRow(0).length),
@@ -238,9 +244,9 @@ def __len__(self):
     expect(fixture.match(/# generated ctypes field/g).length).toBe(CTYPES_FIXTURE_COMMENT_ROWS);
     await setUp(fixture);
 
-    const fullCaptures = rawCaptures();
-    const viewportCaptures = rawCaptures(3, 76);
-    const tileCaptures = rawCaptures(3, 9);
+    const fullCaptures = await rawCaptures();
+    const viewportCaptures = await rawCaptures(3, 76);
+    const tileCaptures = await rawCaptures(3, 9);
 
     // The renderer never asks for the full file. Leaf-rooted candidates make
     // that diagnostic count larger, but keep tile cost independent of a
@@ -257,7 +263,7 @@ def __len__(self):
     lines.push("}");
     await setUp(lines.join("\r\n"));
 
-    expect(rawCaptures(3000, 3006).length).toBeLessThanOrEqual(64);
+    expect((await rawCaptures(3000, 3006)).length).toBeLessThanOrEqual(64);
   });
 
   it("keeps escapes local inside a large triple-quoted string", async () => {
@@ -267,7 +273,7 @@ def __len__(self):
     await setUp(lines.join("\r\n"));
 
     expect(scopesAt(3000, "\\n")).toContain("constant.character.escape.python");
-    const captures = rawCaptures(3000, 3006).filter(
+    const captures = (await rawCaptures(3000, 3006)).filter(
       ({ name }) => name === "constant.character.escape.python",
     );
     expect(captures.length).toBe(6);

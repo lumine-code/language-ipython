@@ -16,6 +16,12 @@ describe("IPython Tree-sitter grammar", () => {
 
   const packagePathFor = (name) => path.resolve(__dirname, "..", "..", name);
 
+  const ancestorAt = (position, type) => {
+    let node = editor.getSyntaxNodeAtBufferPosition(position);
+    while (node && node.type !== type) node = node.parent;
+    return node;
+  };
+
   beforeEach(async () => {
     await lumine.packages.activatePackage("language-ipython");
   });
@@ -24,19 +30,19 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("parses magics, shell escapes, and help requests without errors", async () => {
     await setUp("%matplotlib inline\n!pip install numpy\nnp.mean??\n?np.mean\n%%timeit\nf(x)\n");
-    expect(languageMode.tree.rootNode.hasError).toBe(false);
-    expect(languageMode.getSyntaxNodeAtPosition(new Point(0, 2)).type).toBe("magic_statement");
-    expect(languageMode.getSyntaxNodeAtPosition(new Point(1, 2)).type).toBe("shell_statement");
-    expect(languageMode.getSyntaxNodeAtPosition(new Point(2, 2)).type).toBe("help_statement");
-    expect(languageMode.getSyntaxNodeAtPosition(new Point(3, 2)).type).toBe("help_statement");
-    expect(languageMode.getSyntaxNodeAtPosition(new Point(4, 2)).type).toBe("magic_statement");
+    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition(new Point(0, 2)).type).toBe("magic_statement");
+    expect(editor.getSyntaxNodeAtBufferPosition(new Point(1, 2)).type).toBe("shell_statement");
+    expect(editor.getSyntaxNodeAtBufferPosition(new Point(2, 2)).type).toBe("help_statement");
+    expect(editor.getSyntaxNodeAtBufferPosition(new Point(3, 2)).type).toBe("help_statement");
+    expect(editor.getSyntaxNodeAtBufferPosition(new Point(4, 2)).type).toBe("magic_statement");
   });
 
   it("keeps statements after a magic line intact", async () => {
     await setUp("a = 1\n%cd ..\nb = 2\n");
-    expect(languageMode.tree.rootNode.hasError).toBe(false);
+    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
 
-    let node = languageMode.getSyntaxNodeAtPosition(new Point(2, 0));
+    let node = editor.getSyntaxNodeAtBufferPosition(new Point(2, 0));
     while (node && node.type !== "assignment") node = node.parent;
     expect(node.type).toBe("assignment");
     expect(node.startPosition.row).toBe(2);
@@ -56,9 +62,9 @@ describe("IPython Tree-sitter grammar", () => {
         "value = 1 # %% inline comment",
       ].join("\n"),
     );
-    expect(languageMode.tree.rootNode.hasError).toBe(false);
+    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
 
-    const markers = languageMode.tree.rootNode.descendantsOfType("cell_marker");
+    const markers = Array.from({ length: 7 }, (_, row) => ancestorAt([row, 2], "cell_marker"));
     expect(markers.map((node) => node.childForFieldName("marker").text)).toEqual([
       "# %%",
       "# %%%",
@@ -87,14 +93,15 @@ describe("IPython Tree-sitter grammar", () => {
       "[section] title",
     ]);
 
-    expect(
-      languageMode.tree.rootNode.descendantsOfType("comment").map((node) => node.text),
-    ).toEqual(["# ordinary comment", "# %% inline comment"]);
+    expect([ancestorAt([7, 2], "comment").text, ancestorAt([8, 12], "comment").text]).toEqual([
+      "# ordinary comment",
+      "# %% inline comment",
+    ]);
   });
 
   it("exposes module assignments to symbol consumers", async () => {
     await setUp("doc = factory()\n%pwd\nlater = 2\n");
-    const groups = await languageMode.getQueryCaptureGroups("tagsQuery");
+    const groups = await editor.getGrammarQueryCaptureGroups("tagsQuery");
     const captures = groups.flatMap((group) => group.captures);
     const definitions = captures.filter((capture) => capture.name === "definition.constant");
     expect(definitions.map((capture) => capture.node.text)).toEqual([
@@ -107,7 +114,7 @@ describe("IPython Tree-sitter grammar", () => {
     await setUp(
       "# %% Setup\n# %%% [markdown] Details\n# %% markdown Legacy\n# %% markdown\n# %%\n# %% mda title\nvalue = 1\n",
     );
-    const groups = await languageMode.getQueryCaptureGroups("tagsQuery");
+    const groups = await editor.getGrammarQueryCaptureGroups("tagsQuery");
     const captures = groups.flatMap((group) => group.captures);
 
     expect(
@@ -139,8 +146,8 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("leaves ordinary Python syntax untouched", async () => {
     await setUp('c = a % b\nd = a != b\nx = f"{v!r}"\n');
-    expect(languageMode.tree.rootNode.hasError).toBe(false);
-    let binary = languageMode.getSyntaxNodeAtPosition(new Point(0, 6));
+    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    let binary = editor.getSyntaxNodeAtBufferPosition(new Point(0, 6));
     while (binary && binary.type !== "binary_operator") binary = binary.parent;
     expect(binary.type).toBe("binary_operator");
   });
@@ -196,7 +203,7 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("keeps Python folds working", async () => {
     await setUp("doc.x('''\n11\n''')\n%pwd\n");
-    expect(languageMode.tree.rootNode.hasError).toBe(false);
+    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
     expect(editor.isFoldableAtBufferRow(0)).toBe(true);
   });
 });
