@@ -206,6 +206,23 @@ describe("IPython source projection service", () => {
     }
   });
 
+  it("reads the whole buffer once when classifying many magic headers", async () => {
+    const source = "# %%\n%%bash\necho foreign\n# %%\n%%time\nvalue = 1\n".repeat(100);
+    const original = await service.projectText(source);
+    try {
+      const model = [...service.owned][0],
+        buffer = model.getBuffer();
+      service.stateFor(buffer).cached = null;
+      const reads = spyOn(buffer, "getText").and.callThrough();
+      const projection = await service.project(model);
+      expect(reads.calls.count()).toBe(1);
+      expect(projection.text).not.toContain("echo foreign");
+      expect(projection.text).toContain("value = 1");
+    } finally {
+      original.dispose();
+    }
+  });
+
   it("builds formatting blocks lazily and shares concurrent formatter preparation", async () => {
     const projection = await open("# %%\nvalue = !x\n# %%\nother = 1\n");
     const positions = spyOn(editor.getBuffer(), "positionForCharacterIndex").and.callThrough();
