@@ -30,7 +30,9 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("parses magics, shell escapes, and help requests without errors", async () => {
     await setUp("%matplotlib inline\n!pip install numpy\nnp.mean??\n?np.mean\n%%timeit\nf(x)\n");
-    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
+      false,
+    );
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(0, 2)).type).toBe("magic_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(1, 2)).type).toBe("shell_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(2, 2)).type).toBe("help_statement");
@@ -40,7 +42,9 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("keeps statements after a magic line intact", async () => {
     await setUp("a = 1\n%cd ..\nb = 2\n");
-    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
+      false,
+    );
 
     let node = editor.getSyntaxNodeAtBufferPosition(new Point(2, 0));
     while (node && node.type !== "assignment") node = node.parent;
@@ -62,7 +66,9 @@ describe("IPython Tree-sitter grammar", () => {
         "value = 1 # %% inline comment",
       ].join("\n"),
     );
-    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
+      false,
+    );
 
     const markers = Array.from({ length: 7 }, (_, row) => ancestorAt([row, 2], "cell_marker"));
     expect(markers.map((node) => node.childForFieldName("marker").text)).toEqual([
@@ -146,7 +152,9 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("leaves ordinary Python syntax untouched", async () => {
     await setUp('c = a % b\nd = a != b\nx = f"{v!r}"\n');
-    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
+      false,
+    );
     let binary = editor.getSyntaxNodeAtBufferPosition(new Point(0, 6));
     while (binary && binary.type !== "binary_operator") binary = binary.parent;
     expect(binary.type).toBe("binary_operator");
@@ -203,7 +211,9 @@ describe("IPython Tree-sitter grammar", () => {
 
   it("keeps Python folds working", async () => {
     await setUp("doc.x('''\n11\n''')\n%pwd\n");
-    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
+      false,
+    );
     expect(editor.isFoldableAtBufferRow(0)).toBe(true);
   });
 });

@@ -18,6 +18,8 @@ describe("IPython sample fixture", () => {
     await languageMode.ready;
 
     expect(editor.getGrammar().scopeName).toBe("source.python.ipy");
-    expect((await editor.getSyntaxDiagnostics()).hasError).toBe(false);
+    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
+      false,
+    );
   });
 });
