@@ -65,6 +65,14 @@ describe("IPython cell bodies", () => {
     expect(root().namedChildren.at(-1).type).toBe("assignment");
   });
 
+  it("keeps trailing header whitespace out of literal and magic bodies", async () => {
+    await setUp("# %% [raw] \t \r\npayload\r\n# %%\r\n%%html \t \r\n<h1>Heading</h1>\r\n");
+    expect(root().hasError).toBe(false);
+    expect(root().namedChild(0).childForFieldName("body").text).toBe("payload\r\n");
+    expect(bodyLayers().length).toBe(1);
+    expect(scopesAt(4, 2)).toContain("text.html.basic");
+  });
+
   it("injects original language packages into foreign magic bodies", async () => {
     await setUp(
       "%%bash -x\necho hello\n# %%\n%%html\n<h1>Hi</h1>\n# %%\n%%javascript\nconst value = 1;\n# %%\n%%python3\nanswer = 42\n",
