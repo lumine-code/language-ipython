@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const mainModule = require("../lib/main");
+let mainModule;
 
 const packageRoot = path.resolve(__dirname, "..");
 const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
@@ -8,7 +8,8 @@ const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
 describe("language-ipython package", () => {
   beforeEach(async () => {
     await lumine.packages.activatePackage(packagePath("language-python"));
-    await lumine.packages.activatePackage("language-ipython");
+    const pack = await lumine.packages.activatePackage("language-ipython");
+    mainModule = pack.mainModule;
   });
 
   it("owns .ipy files with a Tree-sitter grammar", () => {

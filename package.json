@@ -28,6 +28,11 @@
   },
   "specPackages": [
     "jupyter-cells",
+    "language-gfm",
+    "language-html",
+    "language-javascript",
+    "language-python",
+    "language-shellscript",
     "symbol-tree-sitter"
   ],
   "scripts": {

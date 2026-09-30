@@ -26,7 +26,10 @@
     (string)
   ] @fold
   ; No delimiter to preserve, so we want to fold all the way to this node's
-  ; ending position.
+; ending position.
+  (#set! fold.endAt endPosition))
+
+([ (markdown_cell) (raw_cell) (cell_magic) ] @fold
   (#set! fold.endAt endPosition))
 
 ; Fold a `try` block only up to the first `except`. This can't be done with

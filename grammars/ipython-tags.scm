@@ -7,6 +7,9 @@
     (assignment
       left: (identifier) @name) @definition.constant))
 
+(python_cell_body
+  (assignment left: (identifier) @name) @definition.constant)
+
 (class_definition
   name: (identifier) @name) @definition.class
 
@@ -22,6 +25,4 @@
 
 ((cell_marker
   name: (cell_marker_name) @name) @definition.cell
-  (#not-match? @name "^(?:md|markdown)\\s*$")
-  (#set! symbol.strip "^(?:md|markdown)\\s+")
   (#set! symbol.icon "bookmark"))

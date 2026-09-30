@@ -29,7 +29,7 @@ describe("IPython Tree-sitter grammar", () => {
   afterEach(() => editor?.destroy());
 
   it("parses magics, shell escapes, and help requests without errors", async () => {
-    await setUp("%matplotlib inline\n!pip install numpy\nnp.mean??\n?np.mean\n%%timeit\nf(x)\n");
+    await setUp("%matplotlib inline\n!pip install numpy\nnp.mean??\n?np.mean\n");
     expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
       false,
     );
@@ -37,7 +37,6 @@ describe("IPython Tree-sitter grammar", () => {
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(1, 2)).type).toBe("shell_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(2, 2)).type).toBe("help_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(3, 2)).type).toBe("help_statement");
-    expect(editor.getSyntaxNodeAtBufferPosition(new Point(4, 2)).type).toBe("magic_statement");
   });
 
   it("keeps statements after a magic line intact", async () => {
@@ -83,8 +82,8 @@ describe("IPython Tree-sitter grammar", () => {
     expect(markers.map((node) => node.childForFieldName("metadata")?.text ?? null)).toEqual([
       null,
       "[markdown]",
-      null,
-      null,
+      "markdown",
+      "markdown",
       null,
       null,
       null,
@@ -92,8 +91,8 @@ describe("IPython Tree-sitter grammar", () => {
     expect(markers.map((node) => node.childForFieldName("name")?.text ?? null)).toEqual([
       "Setup",
       "Details",
-      "markdown Legacy",
-      "markdown",
+      "Legacy",
+      null,
       null,
       "mda title",
       "[section] title",
@@ -132,7 +131,7 @@ describe("IPython Tree-sitter grammar", () => {
       captures
         .filter((capture) => capture.name === "name" && capture.node.type === "cell_marker_name")
         .map((capture) => capture.node.text),
-    ).toEqual(["Setup", "Details", "markdown Legacy", "mda title"]);
+    ).toEqual(["Setup", "Details", "Legacy", "mda title"]);
 
     const symbolPackage = await lumine.packages.activatePackage(
       packagePathFor("symbol-tree-sitter"),
@@ -204,9 +203,10 @@ describe("IPython Tree-sitter grammar", () => {
     const cells = mainModule.provideJupyterCells();
     await setUp("# %% Code\nvalue = 1\n# %%% [markdown] Notes\n# body\n");
 
+    const descriptors = await cells.getCellDescriptors(editor);
     expect(cells.getBreakpoints(editor).map((point) => point.row)).toEqual([0, 2]);
-    expect(cells.getMetadataForRow(editor, new Point(1, 0))).toBe("codecell");
-    expect(cells.getMetadataForRow(editor, new Point(3, 0))).toBe("markdown");
+    expect(descriptors.map((descriptor) => descriptor.cellType)).toEqual(["code", "markdown"]);
+    expect(descriptors.map((descriptor) => descriptor.source)).toEqual(["value = 1", "# body\n"]);
   });
 
   it("keeps Python folds working", async () => {

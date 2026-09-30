@@ -14,7 +14,12 @@ cache.mkdir(exist_ok=True)
 !python --version
 
 # %% [markdown] Analysis TODO
-# Explore the sample and keep its cell markers visible in the symbol list.
+# Analysis
+
+Explore **the sample** and keep its cell markers visible in the symbol list.
+
+# %% [raw] Payload
+This text remains literal: <tag> { unclosed
 
 # %% Statistics
 values = np.array([1, 2, 3, 5, 8])
@@ -22,5 +27,10 @@ mean = values.mean()
 mean?
 np.mean??
 
+# %% Timing
 %%timeit -n 3
 values.mean()
+
+# %% Shell
+%%bash
+echo hello
