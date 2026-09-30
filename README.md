@@ -38,7 +38,7 @@ Cell magics must occupy the first nonblank line in a code cell. Their entire bod
 
 ## Services
 
-- `ipython.source`: provided to share an AST-based Python analysis projection, safe position/edit mapping and reversible Python-body formatting. See the [service contract](docs/source-projection.md).
+- `ipython.source`: provided to share an AST-based Python analysis projection, safe position/edit mapping and reversible Python-body formatting. See the [service contract](docs/ipython.source.md).
 - `hyperlink.injection`: consumed to highlight URLs in comments, strings, and cell titles as clickable links.
 - `todo.injection`: consumed to highlight `TODO`-style markers in comments and cell titles.
 
