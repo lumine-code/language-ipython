@@ -6,7 +6,7 @@ IPython language support.
 
 - **Grammars**: provides Tree-sitter grammars built from [lumine-code/tree-sitter-ipython](https://github.com/lumine-code/tree-sitter-ipython).
 - **Syntax highlighting**: highlights Python, assignment results from magics and shell escapes, help requests, and structured cell magic headers.
-- **Cell markers**: parses column-zero `# %% Title` as a named code cell; each additional `%` increases its navigation level, while `[markdown]`, `[md]`, `[raw]`, and their bare spellings select literal cell bodies.
+- **Cell markers**: parses column-zero `# %% Title` as a named code cell; each additional `%` increases its navigation level, while `[markdown]`, `[md]`, and `[raw]` select literal cell bodies; `[code]` explicitly selects code.
 - **Embedded languages**: uses the original Markdown, shell, HTML, JavaScript, Python, XML, LaTeX, Perl, and Ruby grammars for known cell magic bodies; raw and unknown bodies stay plain.
 - **Python integration**: inherits Python settings and snippets without maintaining copies.
 - **Folding and symbols**: reuses the Python tree shape for structural editing and exposes named cells alongside Python definitions.
@@ -32,7 +32,7 @@ Keep this text exactly as written.
 echo hello
 ```
 
-Metadata is case-sensitive and must immediately follow the marker's percent run as a complete word. `[markdown]`, `[md]`, `markdown`, and `md` mean Markdown; `[raw]` and `raw` mean raw. Unknown metadata stays a code-cell title. Markers inside Python strings, brackets, continued expressions, or indented blocks do not split cells. A column-zero marker is reserved inside literal bodies too; indent it to include it as text.
+Metadata is case-sensitive and must immediately follow the marker's percent run as a complete word. `[markdown]` and `[md]` mean Markdown; `[raw]` means raw; `[code]` means code. Bare `markdown`, `md`, and `raw`, and unknown metadata stay code-cell titles. Markers inside Python strings, brackets, continued expressions, or indented blocks do not split cells. A column-zero marker is reserved inside literal bodies too; indent it to include it as text.
 
 Cell magics must occupy the first nonblank line in a code cell. Their entire body belongs to that magic until the next cell marker or EOF. `time`, `timeit`, `prun`, `debug`, `capture`, and `code_wrap` keep Python syntax and symbols. Other known names inject the corresponding installed language grammar; `script`, `writefile`, `file`, `cmd`, and custom magics keep a plain body. Language highlighting never changes which kernel executes a code cell.
 

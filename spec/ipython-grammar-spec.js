@@ -82,8 +82,8 @@ describe("IPython Tree-sitter grammar", () => {
     expect(markers.map((node) => node.childForFieldName("metadata")?.text ?? null)).toEqual([
       null,
       "[markdown]",
-      "markdown",
-      "markdown",
+      null,
+      null,
       null,
       null,
       null,
@@ -91,8 +91,8 @@ describe("IPython Tree-sitter grammar", () => {
     expect(markers.map((node) => node.childForFieldName("name")?.text ?? null)).toEqual([
       "Setup",
       "Details",
-      "Legacy",
-      null,
+      "markdown Legacy",
+      "markdown",
       null,
       "mda title",
       "[section] title",
@@ -115,6 +115,41 @@ describe("IPython Tree-sitter grammar", () => {
     ]);
   });
 
+  it("keeps bracketed code metadata and unlimited prefixes separate from literal bodies", async () => {
+    const spacing = " ".repeat(10000);
+    const prefix = `#${spacing}${"%".repeat(5000)}`;
+    await setUp(`# %% [raw]\npayload\n${prefix}${spacing}[code] Title${spacing}\nvalue = 1\n`);
+    const root = editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent);
+    expect(root.hasError).toBe(false);
+    expect(root.namedChildren.map((node) => node.type)).toEqual([
+      "raw_cell",
+      "cell_marker",
+      "assignment",
+    ]);
+    const marker = root.namedChild(1);
+    expect(marker.childForFieldName("marker").text).toBe(prefix);
+    expect(marker.childForFieldName("metadata").text).toBe("[code]");
+    expect(marker.childForFieldName("name").text).toBe("Title");
+    expect(root.namedChild(0).childForFieldName("body").text).toBe("payload\n");
+  });
+
+  it("parses comment-first code cells and Python magic bodies through repeated markers", async () => {
+    await setUp("# %% [code]\n# first\nvalue = 1\n# %%\n%%time\n# timed\nnext = 2\n# %%\n# last");
+    const root = editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent);
+    expect(root.hasError).toBe(false);
+    expect(root.descendantsOfType("comment").map((node) => node.text)).toEqual([
+      "# first",
+      "# timed",
+      "# last",
+    ]);
+    const magic = root.descendantsOfType("cell_magic")[0];
+    expect(magic.childForFieldName("body").type).toBe("python_cell_body");
+    expect(
+      magic.childForFieldName("body").descendantsOfType("assignment")[0].childForFieldName("left")
+        .text,
+    ).toBe("next");
+  });
+
   it("exposes only named cell markers to symbol consumers", async () => {
     await setUp(
       "# %% Setup\n# %%% [markdown] Details\n# %% markdown Legacy\n# %% markdown\n# %%\n# %% mda title\nvalue = 1\n",
@@ -126,12 +161,18 @@ describe("IPython Tree-sitter grammar", () => {
       captures
         .filter((capture) => capture.name === "definition.cell")
         .map((capture) => capture.node.text),
-    ).toEqual(["# %% Setup", "# %%% [markdown] Details", "# %% markdown Legacy", "# %% mda title"]);
+    ).toEqual([
+      "# %% Setup",
+      "# %%% [markdown] Details",
+      "# %% markdown Legacy",
+      "# %% markdown",
+      "# %% mda title",
+    ]);
     expect(
       captures
         .filter((capture) => capture.name === "name" && capture.node.type === "cell_marker_name")
         .map((capture) => capture.node.text),
-    ).toEqual(["Setup", "Details", "Legacy", "mda title"]);
+    ).toEqual(["Setup", "Details", "markdown Legacy", "markdown", "mda title"]);
 
     const symbolPackage = await lumine.packages.activatePackage(
       packagePathFor("symbol-tree-sitter"),
@@ -144,7 +185,8 @@ describe("IPython Tree-sitter grammar", () => {
     expect(symbols.filter((symbol) => symbol.tag === "cell").map((symbol) => symbol.name)).toEqual([
       "Setup",
       "Details",
-      "Legacy",
+      "markdown Legacy",
+      "markdown",
       "mda title",
     ]);
   });
