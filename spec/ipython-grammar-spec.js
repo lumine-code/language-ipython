@@ -150,6 +150,26 @@ describe("IPython Tree-sitter grammar", () => {
     ).toBe("next");
   });
 
+  it("recovers typed boundaries after an incomplete assignment without treating them as comments", async () => {
+    await setUp(
+      "# %% Broken\nvalue =\n# %% [markdown]\n# Heading\n# %% [raw]\nraw <bytes>\n# %% [code]\ngood = 1\n",
+    );
+    const root = editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent);
+    expect(root.hasError).toBe(true);
+    const cells = root.namedChildren.filter((node) =>
+      ["cell_marker", "markdown_cell", "raw_cell"].includes(node.type),
+    );
+    expect(cells.map((node) => node.type)).toEqual([
+      "cell_marker",
+      "markdown_cell",
+      "raw_cell",
+      "cell_marker",
+    ]);
+    expect(cells[1].childForFieldName("body").text).toBe("# Heading\n");
+    expect(cells[2].childForFieldName("body").text).toBe("raw <bytes>\n");
+    expect(root.namedChildren.at(-1).childForFieldName("left").text).toBe("good");
+  });
+
   it("exposes only named cell markers to symbol consumers", async () => {
     await setUp(
       "# %% Setup\n# %%% [markdown] Details\n# %% markdown Legacy\n# %% markdown\n# %%\n# %% mda title\nvalue = 1\n",
