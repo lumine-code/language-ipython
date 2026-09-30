@@ -43,6 +43,20 @@ describe("IPython source projection service", () => {
     expect(projection.isPythonPosition([2, 3])).toBe(true);
   });
 
+  it("prepares proven identity source without waiting for an unrelated editor parse", async () => {
+    await open("value = 1\n");
+    const mode = editor.getBuffer().getLanguageMode();
+    const waits = spyOn(mode, "atGrammarSettlement").and.callThrough();
+    editor.setText("value = 2\n# ordinary comment\n");
+    const projection = await service.project(editor);
+    expect(projection.text).toBe(editor.getText());
+    expect(waits).not.toHaveBeenCalled();
+    editor.setText("value = !x\n");
+    const mixed = await service.project(editor);
+    expect(mixed.text).toBe("value = eval('')\n");
+    expect(waits).toHaveBeenCalled();
+  });
+
   it("excludes all literal Markdown including fenced Python and raw bytes", async () => {
     const projection = await open(
       "# %% [markdown] Notes\r\n```python\r\nsecret = 1\r\n```\r\n# %% [raw]\r\nraw <😀>\r\n# %% [code]\r\nvisible = 2\r\n",
@@ -55,7 +69,9 @@ describe("IPython source projection service", () => {
     expect(projection.isPythonPosition([2, 4])).toBe(false);
     expect(projection.isPythonPosition([5, 3])).toBe(false);
     expect(projection.isPythonPosition([7, 4])).toBe(true);
-    expect(projection.getFormattingBlocks().map((block) => block.range.start.row)).toEqual([7]);
+    expect((await projection.getFormattingBlocks()).map((block) => block.range.start.row)).toEqual([
+      7,
+    ]);
   });
 
   it("keeps Python wrapper and interpreter bodies while excluding foreign and unknown magics", async () => {
@@ -68,7 +84,7 @@ describe("IPython source projection service", () => {
     expect(projection.text).not.toContain("%%time");
     expect(projection.text).not.toContain("foreign");
     expect(projection.text).not.toContain("unknown <");
-    expect(projection.getFormattingBlocks().map((block) => block.range.start.row)).toEqual([
+    expect((await projection.getFormattingBlocks()).map((block) => block.range.start.row)).toEqual([
       1, 4, 12,
     ]);
   });
@@ -169,10 +185,76 @@ describe("IPython source projection service", () => {
     expect(latest.isCurrent()).toBe(true);
   });
 
+  it("keeps a shared-buffer snapshot current after its first split closes", async () => {
+    const builds = spyOn(service, "buildSnapshot").and.callThrough();
+    const first = await open("value = !x\n");
+    const second = editor.copy();
+    try {
+      expect(second.getBuffer()).toBe(editor.getBuffer());
+      expect(await service.project(second)).toBe(first);
+      editor.destroy();
+      expect(first.isCurrent()).toBe(true);
+      expect(await service.project(second)).toBe(first);
+      expect(builds.calls.count()).toBe(1);
+      second.setText("value = !y\n");
+      expect(first.isCurrent()).toBe(false);
+      const latest = await service.project(second);
+      expect(latest.source).toBe("value = !y\n");
+      expect(builds.calls.count()).toBe(2);
+    } finally {
+      second.destroy();
+    }
+  });
+
+  it("builds formatting blocks lazily and shares concurrent formatter preparation", async () => {
+    const projection = await open("# %%\nvalue = !x\n# %%\nother = 1\n");
+    const positions = spyOn(editor.getBuffer(), "positionForCharacterIndex").and.callThrough();
+    expect(projection.pythonFormattingRegions.map((item) => item.start.row)).toEqual([1, 3]);
+    expect(positions).not.toHaveBeenCalled();
+    const [first, second] = await Promise.all([
+      projection.getFormattingBlocks(),
+      projection.getFormattingBlocks(),
+    ]);
+    expect(first).toBe(second);
+    expect(first.length).toBe(2);
+    expect(positions.calls.count()).toBe(4);
+    const batch = await projection.getFormattingBatch();
+    expect(batch.restore(batch.text)).toEqual(
+      first.map((block) => ({
+        range: block.range,
+        text: block.restore(block.text),
+      })),
+    );
+    expect(positions.calls.count()).toBe(4);
+    const selected = await projection.getFormattingBatch([
+      [
+        [3, 0],
+        [3, 9],
+      ],
+    ]);
+    expect(selected.restore(selected.text)).toEqual([
+      { range: first[1].range, text: "other = 1\n" },
+    ]);
+    editor.setText("changed = 2\n");
+    expect(await projection.getFormattingBlocks()).toEqual([]);
+    expect(await projection.getFormattingBatch()).toBe(null);
+  });
+
+  it("converts queried Python rows independently of a large opaque Unicode body", async () => {
+    const projection = await open("# %% [raw]\n" + "😀".repeat(65536) + "\n# %%\nvalue = '😀'\n");
+    expect(projection.toCodePointPosition([3, 12])).toEqual(new Point(3, 11));
+    expect(projection.fromCodePointPosition([3, 11])).toEqual(new Point(3, 12));
+    expect(projection.sourceToCodePointPosition([3, 12])).toEqual(new Point(3, 11));
+    expect(projection.sourceFromCodePointPosition([3, 11])).toEqual(new Point(3, 12));
+    expect(projection.toCodePointPosition([3, 10])).toBe(null);
+    expect(projection.toCodePointPosition([1, 100])).toEqual(new Point(1, 100));
+    expect(projection.sourceToCodePointPosition([1, 100])).toEqual(new Point(1, 50));
+  });
+
   it("returns reversible formatting blocks without headers or foreign bodies", async () => {
     const source = "#%%$$# Code\nvalue=!x\nif ready:\n    %pwd\n# %% [raw]\nraw <payload>\n";
     const projection = await open(source);
-    const blocks = projection.getFormattingBlocks();
+    const blocks = await projection.getFormattingBlocks();
     expect(blocks.length).toBe(1);
     const block = blocks[0];
     expect(block.range).toEqual(new Range([1, 0], [4, 0]));
@@ -187,7 +269,7 @@ describe("IPython source projection service", () => {
 
   it("rejects missing, duplicated, quoted and wrapped formatting sentinels", async () => {
     const projection = await open("value = !x\n%pwd\n");
-    const block = projection.getFormattingBlocks()[0];
+    const block = (await projection.getFormattingBlocks())[0];
     const calls = block.text.match(/__lumine_ipy_\d+_(?:rhs|statement)_\d+\(\)/g);
     expect(block.restore(block.text.replace(calls[0], "0"))).toBe(null);
     expect(block.restore(block.text + calls[1] + "\n")).toBe(null);
@@ -222,7 +304,7 @@ describe("IPython source projection service", () => {
     await lumine.packages.deactivatePackage("language-ipython");
     expect(projection.isCurrent()).toBe(false);
     expect(service.live.size).toBe(0);
-    expect(projection.getFormattingBlocks()).toEqual([]);
+    expect(await projection.getFormattingBlocks()).toEqual([]);
     await lumine.packages.activatePackage(packagePath("language-ipython"));
     const fresh = lumine.packages
       .getActivePackage("language-ipython")
