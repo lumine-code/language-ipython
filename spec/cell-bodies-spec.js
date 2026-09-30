@@ -36,6 +36,64 @@ describe("IPython cell bodies", () => {
 
   afterEach(() => editor?.destroy());
 
+  it("preserves legacy navigation annotations beside literal and magic cells", async () => {
+    await setUp(
+      [
+        "#%%$# Parent",
+        "value = 1",
+        "# %% [markdown] Notes",
+        "# Heading",
+        "#%%$$# Child",
+        "%%time",
+        "#$$p# Timed annotation",
+        "timed = 2",
+        "# %% [raw] Data",
+        "raw <payload>",
+        "#%%$$p!_<;# HTML annotation",
+        "%%html",
+        "<h1>Heading</h1>",
+        "#%%$$v+<# Final",
+        "final = 3 #$$v# Inline annotation",
+        "",
+      ].join("\n"),
+    );
+    expect(root().hasError).toBe(false);
+    const legacy = root()
+      .descendantsOfType("cell_marker")
+      .filter((node) => node.childForFieldName("marker").text === "#%%");
+    expect(legacy.map((node) => node.childForFieldName("name").text)).toEqual([
+      "$# Parent",
+      "$$# Child",
+      "$$p!_<;# HTML annotation",
+      "$$v+<# Final",
+    ]);
+    expect(legacy.map((node) => node.childForFieldName("metadata"))).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
+    expect(legacy.map((node) => node.startPosition.row)).toEqual([0, 4, 10, 13]);
+    expect(
+      root()
+        .descendantsOfType("comment")
+        .map((node) => node.text),
+    ).toEqual(["#$$p# Timed annotation", "#$$v# Inline annotation"]);
+    expect(root().descendantsOfType("markdown_cell")[0].childForFieldName("body").text).toBe(
+      "# Heading\n",
+    );
+    expect(root().descendantsOfType("raw_cell")[0].childForFieldName("body").text).toBe(
+      "raw <payload>\n",
+    );
+    expect(bodyLayers().map((layer) => layer.grammar.scopeName)).toEqual([
+      "source.gfm",
+      "text.html.basic",
+    ]);
+    expect(scopesAt(3, 2)).toContain("source.gfm");
+    expect(scopesAt(9, 2)).toContain("text.plain");
+    expect(scopesAt(12, 2)).toContain("text.html.basic");
+  });
+
   it("injects each literal Markdown body once and isolates an unfinished fence", async () => {
     await setUp(
       "# %% [markdown] First\n# Heading\n```python\nvalue = 1\n# %% [markdown] Second\n# Next\n**bold**\n# %%\nafter = 2\n",
