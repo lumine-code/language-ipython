@@ -6,7 +6,9 @@
   "injectionNames": ["ipython", "ipy"],
   "firstLineRegex": [
     "^#![ \\t]*/.*\\bipython[\\d\\.]*\\b",
-    "vim\\b.*\\bset\\b.*\\b(filetype|ft|syntax)=ipython"
+    // Stop at the first Vim and set tokens instead of backtracking over them.
+    // \x0a keeps existing shebang prefix line counts unchanged.
+    "(?:^|\\x0a)(?:(?!vim\\b).)*vim\\b(?:(?!\\bset\\b).)*\\bset\\b.*\\b(filetype|ft|syntax)=ipython"
   ],
   "fileTypes": ["ipy"],
   "comments": {
