@@ -301,7 +301,7 @@ describe("IPython source projection service", () => {
     ]);
     expect(first).toBe(second);
     expect(first.length).toBe(2);
-    expect(positions.calls.count()).toBe(4);
+    expect(positions.calls.count()).toBe(0);
     const batch = await projection.getFormattingBatch();
     const [cachedFirst, cachedSecond] = await Promise.all([
       projection.getFormattingBatch(),
@@ -315,7 +315,7 @@ describe("IPython source projection service", () => {
         text: block.restore(block.text),
       })),
     );
-    expect(positions.calls.count()).toBe(4);
+    expect(positions.calls.count()).toBe(0);
     const selected = await projection.getFormattingBatch([
       [
         [3, 0],

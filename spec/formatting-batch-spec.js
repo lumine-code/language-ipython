@@ -165,9 +165,15 @@ describe("IPython formatting batches", () => {
     const batch = await createBatch(blocks, { ...options(source), allowWholeDocument: true });
     const diff = spyOn(TextBuffer.prototype, "getChangesToText").and.callThrough();
     const mutation = spyOn(TextBuffer.prototype, "setText").and.callThrough();
+    const constructed = spyOn(TextBuffer.prototype, "setHistoryProvider").and.callThrough();
+    const indices = spyOn(TextBuffer.prototype, "characterIndexForPosition").and.callThrough();
+    const positions = spyOn(TextBuffer.prototype, "positionForCharacterIndex").and.callThrough();
     const plan = await batch.getEditPlan(batch.text.replaceAll("=1", " = 1"), [new Point(0, 0)]);
     expect(diff).not.toHaveBeenCalled();
     expect(mutation).not.toHaveBeenCalled();
+    expect(constructed).not.toHaveBeenCalled();
+    expect(indices).not.toHaveBeenCalled();
+    expect(positions).not.toHaveBeenCalled();
     expect(plan.edits.length).toBe(1000);
     expect(plan.replaceWholeDocument).toBe(true);
     expect(plan.text).toBe(source.replaceAll("=1", " = 1"));
@@ -189,6 +195,37 @@ describe("IPython formatting batches", () => {
     expect(plan.edits.filter((edit) => edit.oldRange.start.row === 1).length).toBe(4);
     expect(plan.edits.filter((edit) => edit.oldRange.start.row === 3).length).toBe(1);
     expect(plan.text).toBe(source.replaceAll("=", " = "));
+  });
+
+  it("caches scalar geometry without native buffers and checks supplied offsets against CRLF positions", async () => {
+    const source = "#%% One\r\nname='😀'\r\n#%% Two\r\nvalue=1\r\n";
+    const bodies = [block(1, "name='😀'\r\n"), block(3, "value=1\r\n")];
+    const supplied = bodies.map((body) => ({
+      range: body.range,
+      start: source.indexOf(body.text),
+      end: source.indexOf(body.text) + body.text.length,
+    }));
+    const batch = await createBatch(bodies, {
+      ...options(source),
+      allowWholeDocument: true,
+      sourceGeometry: supplied,
+    });
+    const constructed = spyOn(TextBuffer.prototype, "setHistoryProvider").and.callThrough();
+    const target = batch.text.replace("value=1", "value = 1");
+    expect((await batch.getEditPlan(target)).text).toBe(source.replace("value=1", "value = 1"));
+    expect((await batch.getEditPlan(target)).text).toBe(source.replace("value=1", "value = 1"));
+    expect(constructed).not.toHaveBeenCalled();
+    for (const scalar of [
+      { ...supplied[0], start: -1 },
+      { ...supplied[0], end: supplied[0].end + 1 },
+    ]) {
+      const invalid = await createBatch(bodies, {
+        ...options(source),
+        allowWholeDocument: true,
+        sourceGeometry: [scalar, supplied[1]],
+      });
+      expect(await invalid.getEditPlan(invalid.text)).toBeNull();
+    }
   });
 
   it("keeps UTF-16 surrogate pairs and CRLF intact at fast trim boundaries", async () => {
