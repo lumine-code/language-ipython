@@ -245,6 +245,22 @@ describe("IPython formatting batches", () => {
     }
   });
 
+  it("matches buffer coordinates when source contains standalone carriage returns", async () => {
+    const source = "value=1\rlast=2\r";
+    const buffer = new TextBuffer({ text: source });
+    try {
+      const body = { range: buffer.getRange(), text: source, restore: (text) => text };
+      const batch = await createBatch([body], { ...options(source), allowWholeDocument: true });
+      const plan = await batch.getEditPlan(source.replaceAll("=", " = "));
+      expect(plan?.text).toBe(source.replaceAll("=", " = "));
+      for (const edit of plan?.edits || [])
+        buffer.setTextInRange(edit.oldRange, edit.newText, { normalizeLineEndings: false });
+      expect(buffer.getText()).toBe(plan?.text);
+    } finally {
+      buffer.destroy();
+    }
+  });
+
   it("preserves mixed line endings and opaque bytes while reconstructing the whole target", async () => {
     const source = "# %% First\r\nx=1\r\n# %% [raw]\npayload <😀>\r\n# %% Last\r\ny=2\r\n";
     const batch = await createBatch([block(1, "x=1\r\n"), block(5, "y=2\r\n")], options(source));
