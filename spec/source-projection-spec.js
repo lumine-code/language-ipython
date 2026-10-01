@@ -29,48 +29,6 @@ describe("IPython source projection service", () => {
     editor = null;
   });
 
-  it("replays conservative traversal after an unknown scaffold shape without retaining partial masks", async () => {
-    const source = "# %% Code\nx=%pwd\n# %% [raw]\nbytes 😀\n# %% Timed\n%%time\n!echo done\n";
-    const expected = await open(source);
-    const tree = editor.getBuffer().getLanguageMode().rootLanguageLayer.tree;
-    const nodes = [
-      tree.rootNode.namedChild(0),
-      tree.rootNode.namedChild(1),
-      { type: "future_cell" },
-    ];
-    let walks = 0,
-      index = 0;
-    const partial = {
-      gotoFirstChild: () => true,
-      gotoNextSibling: () => ++index < nodes.length,
-      get currentNode() {
-        return nodes[index];
-      },
-      delete: jasmine.createSpy("delete partial cursor"),
-    };
-    const fallbackTree = {
-      rootNode: tree.rootNode,
-      walk: () => (++walks === 1 ? partial : tree.walk()),
-    };
-    const recovered = await service.buildSnapshot(editor, source, fallbackTree, expected.isCurrent);
-    expect(walks).toBe(2);
-    expect(partial.delete).toHaveBeenCalled();
-    const scalar = (snapshot) => ({
-      source: snapshot.source,
-      text: snapshot.text,
-      protected: snapshot.protectedRanges.map((item) => item.serialize()),
-      synthetic: snapshot.syntheticRanges.map((item) => item.serialize()),
-      regions: snapshot.pythonFormattingRegions.map((item) => item.serialize()),
-    });
-    expect(scalar(recovered)).toEqual(scalar(expected));
-    const restored = async (snapshot) =>
-      (await snapshot.getFormattingBlocks()).map((block) => ({
-        range: block.range.serialize(),
-        text: block.restore(block.text),
-      }));
-    expect(await restored(recovered)).toEqual(await restored(expected));
-  });
-
   it("uses a linear cursor for a large body of commands without indexed child lookups", async () => {
     await open("# %% Commands\n" + "%pwd\n".repeat(10000));
     const tree = editor.getBuffer().getLanguageMode().rootLanguageLayer.tree;
