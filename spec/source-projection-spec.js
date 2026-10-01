@@ -1,9 +1,13 @@
+const fs = require("fs");
 const path = require("path");
 const { Point, Range } = require("lumine");
 
 describe("IPython source projection service", () => {
   let editor, service;
-  const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
+  const packagePath = (name) => {
+    const sibling = path.resolve(__dirname, "..", "..", name);
+    return fs.existsSync(sibling) ? sibling : name;
+  };
   async function open(source, scope = "source.python.ipy") {
     editor = await lumine.workspace.open();
     editor.setText(source);

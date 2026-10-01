@@ -1,16 +1,20 @@
+const fs = require("fs");
 const path = require("path");
 
 describe("IPython cell bodies", () => {
   let editor;
   let mode;
-  const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
+  const packagePath = (name) => {
+    const sibling = path.resolve(__dirname, "..", "..", name);
+    return fs.existsSync(sibling) ? sibling : name;
+  };
   const scopesAt = (row, column = 0) =>
     editor.scopeDescriptorForBufferPosition([row, column]).getScopesArray();
   const root = () => mode.rootLanguageLayer.tree.rootNode;
   const bodyLayers = () =>
     mode
       .getAllInjectionLayers()
-      .filter((layer) => ["markdown_cell", "cell_magic"].includes(layer.injectionPoint?.type));
+      .filter((layer) => layer.depth === 1 && layer.grammar.scopeName !== "source.python");
   const pythonLayer = () =>
     mode.getAllInjectionLayers().find((layer) => layer.injectionPoint?.type === "python_cell_body");
 
@@ -183,10 +187,10 @@ describe("IPython cell bodies", () => {
     expect(scopesAt(1, 3)).toContain("source.gfm");
   });
 
-  it("owns and disposes only its registered cell injections", async () => {
+  it("disposes its projected Python rule and preserves static cell bodies after reactivation", async () => {
     const grammar = lumine.grammars.grammarForScopeName("source.python.ipy");
-    expect(grammar.injectionPointsByType.markdown_cell.length).toBe(1);
-    expect(grammar.injectionPointsByType.cell_magic.length).toBe(1);
+    expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
+    expect(grammar.injectionPointsByType.cell_magic).toBeUndefined();
     expect(grammar.injectionPointsByType.python_cell_body.length).toBe(1);
     await lumine.packages.deactivatePackage("language-ipython");
     expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
@@ -194,9 +198,15 @@ describe("IPython cell bodies", () => {
     expect(grammar.injectionPointsByType.python_cell_body).toBeUndefined();
     const pack = await lumine.packages.activatePackage(packagePath("language-ipython"));
     expect(pack.mainModule).toBeDefined();
-    expect(grammar.injectionPointsByType.markdown_cell.length).toBe(1);
-    expect(grammar.injectionPointsByType.cell_magic.length).toBe(1);
+    expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
+    expect(grammar.injectionPointsByType.cell_magic).toBeUndefined();
     expect(grammar.injectionPointsByType.python_cell_body.length).toBe(1);
+    await setUp("# %% [markdown]\n# Heading\n# %%\n%%html\n<h1>Hi</h1>\n# %%\nvalue = 1\n");
+    expect(bodyLayers().map((layer) => layer.grammar.scopeName)).toEqual([
+      "source.gfm",
+      "text.html.basic",
+    ]);
+    expect(pythonLayer().grammar.scopeName).toBe("source.python");
   });
 
   it("uses one native Python module across ordinary cells, wrappers and interpreter aliases", async () => {

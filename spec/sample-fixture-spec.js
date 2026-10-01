@@ -1,5 +1,9 @@
+const fs = require("fs");
 const path = require("path");
-const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
+const packagePath = (name) => {
+  const sibling = path.resolve(__dirname, "..", "..", name);
+  return fs.existsSync(sibling) ? sibling : name;
+};
 
 // The fixture beside this file is a plain sample of the language — the file to
 // open when you want to look at the highlighting rather than assert on it. This

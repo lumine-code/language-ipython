@@ -1,3 +1,4 @@
+const fs = require("fs");
 const { Point } = require("lumine");
 const path = require("path");
 
@@ -13,7 +14,10 @@ describe("IPython Tree-sitter grammar", () => {
     await editor.whenGrammarSettled();
   };
 
-  const packagePathFor = (name) => path.resolve(__dirname, "..", "..", name);
+  const packagePathFor = (name) => {
+    const sibling = path.resolve(__dirname, "..", "..", name);
+    return fs.existsSync(sibling) ? sibling : name;
+  };
 
   const ancestorAt = (position, type) => {
     let node = editor.getSyntaxNodeAtBufferPosition(position);

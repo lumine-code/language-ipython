@@ -3,7 +3,10 @@ const path = require("path");
 let mainModule;
 
 const packageRoot = path.resolve(__dirname, "..");
-const packagePath = (name) => path.resolve(__dirname, "..", "..", name);
+const packagePath = (name) => {
+  const sibling = path.resolve(__dirname, "..", "..", name);
+  return fs.existsSync(sibling) ? sibling : name;
+};
 
 describe("language-ipython package", () => {
   beforeEach(async () => {

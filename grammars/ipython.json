@@ -21,6 +21,7 @@
     "highlightsQuery": "ipython-highlights.scm",
     "tagsQuery": "ipython-tags.scm",
     "foldsQuery": "ipython-folds.scm",
-    "indentsQuery": "ipython-indents.scm"
+    "indentsQuery": "ipython-indents.scm",
+    "injectionsQuery": "ipython-injections.scm"
   }
 }
