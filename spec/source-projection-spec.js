@@ -39,6 +39,7 @@ describe("IPython source projection service", () => {
     const projection = await open(source);
     expect(projection.source).toBe(source);
     expect(projection.text).toBe(source);
+    expect(projection.isIdentity).toBe(true);
     expect(projection.protectedRanges.length).toBe(0);
     expect(projection.isPythonPosition([2, 3])).toBe(true);
   });
@@ -62,6 +63,7 @@ describe("IPython source projection service", () => {
       "# %% [markdown] Notes\r\n```python\r\nsecret = 1\r\n```\r\n# %% [raw]\r\nraw <😀>\r\n# %% [code]\r\nvisible = 2\r\n",
     );
     expect(projection.text).not.toContain("secret");
+    expect(projection.isIdentity).toBe(false);
     expect(projection.text).not.toContain("raw <");
     expect(projection.text).toContain("visible = 2");
     expect(projection.text.length).toBe(projection.source.length);
