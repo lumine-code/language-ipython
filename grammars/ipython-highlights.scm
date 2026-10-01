@@ -6,7 +6,7 @@
 (shell_expression) @string.unquoted.shell.ipython
 (help_statement) @keyword.operator.help.ipython
 
-(cell_magic "%%" @punctuation.definition.magic.ipython
+(cell_magic "%%" @punctuation.definition.magic.ipython @support.function.magic.ipython
   name: (cell_magic_name) @support.function.magic.ipython)
 (cell_magic_arguments) @string.unquoted.arguments.ipython
 
