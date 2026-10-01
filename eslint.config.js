@@ -7,7 +7,7 @@ const runtimeModules = ["lumine"];
 
 module.exports = [
   {
-    ignores: ["spec/fixtures/**"],
+    ignores: ["spec/fixtures/**", ".test-home/**"],
   },
   js.configs.recommended,
   n.configs["flat/recommended-script"],

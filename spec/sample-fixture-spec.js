@@ -15,11 +15,12 @@ describe("IPython sample fixture", () => {
   it("parses sample.ipy without error", async () => {
     const editor = await lumine.workspace.open(path.join(__dirname, "fixtures", "sample.ipy"));
     const languageMode = editor.getBuffer().getLanguageMode();
-    await languageMode.ready;
-
-    expect(editor.getGrammar().scopeName).toBe("source.python.ipy");
-    expect(editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent).hasError).toBe(
-      false,
-    );
+    try {
+      await editor.whenGrammarSettled();
+      expect(editor.getGrammar().scopeName).toBe("source.python.ipy");
+      expect(languageMode.rootLanguageLayer.tree.rootNode.hasError).toBe(false);
+    } finally {
+      editor.destroy();
+    }
   });
 });

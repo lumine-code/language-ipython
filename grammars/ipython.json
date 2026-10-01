@@ -15,10 +15,10 @@
     "start": "# "
   },
   "treeSitter": {
-    "parserSource": "github:lumine-code/tree-sitter-ipython#4d59778221504441ca00d13c5e58df962d466b8a",
+    "parserSource": "github:lumine-code/tree-sitter-ipython#30f0cc377de1d60baffb3af12ba2605012c1c374",
     "wasmBuildTool": "tree-sitter-cli#v0.27.0",
     "grammar": "ipython.wasm",
-    "highlightsQuery": ["python-highlights.scm", "ipython-highlights.scm"],
+    "highlightsQuery": "ipython-highlights.scm",
     "tagsQuery": "ipython-tags.scm",
     "foldsQuery": "ipython-folds.scm",
     "indentsQuery": "ipython-indents.scm"

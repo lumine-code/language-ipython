@@ -1,7 +1,8 @@
-const { Range } = require("lumine");
+const { Range, TextBuffer } = require("lumine");
 const createBatch = require("../lib/formatting-batch");
 
 describe("IPython formatting batches", () => {
+  beforeEach(() => jasmine.useRealClock());
   const block = (row, text, restore = (value) => value) => ({
     range: new Range([row, 0], [row + 1, 0]),
     text,
@@ -121,5 +122,82 @@ describe("IPython formatting batches", () => {
       await createBatch([block(0, "x=1\n")], { source: "", isCurrent: () => current }),
     ).toBeNull();
     expect(await createBatch([], options())).toBeNull();
+  });
+
+  it("builds a 1000-body edit plan using one scratch buffer and one native diff", async () => {
+    const source = Array.from(
+      { length: 1000 },
+      (_, index) => `# %% Cell ${index}\nvalue_${index}=1\n`,
+    ).join("");
+    const bodies = Array.from({ length: 1000 }, (_, index) =>
+      block(index * 2 + 1, `value_${index}=1\n`),
+    );
+    const batch = await createBatch(bodies, options(source));
+    const checkpoints = spyOn(TextBuffer.prototype, "createCheckpoint").and.callThrough();
+    const diffs = spyOn(TextBuffer.prototype, "setTextViaDiff").and.callThrough();
+    const destroyed = spyOn(TextBuffer.prototype, "destroy").and.callThrough();
+    const plan = await batch.getEditPlan(batch.text.replaceAll("=1", " = 1"));
+    expect(plan.text).toBe(source.replaceAll("=1", " = 1"));
+    expect(plan.fallback).toBe(false);
+    expect(checkpoints).toHaveBeenCalledTimes(1);
+    expect(diffs).toHaveBeenCalledTimes(1);
+    expect(destroyed).toHaveBeenCalledTimes(1);
+    const apply = new TextBuffer({ text: source });
+    try {
+      for (const edit of [...plan.edits].sort((a, b) => b.oldRange.start.compare(a.oldRange.start)))
+        apply.setTextInRange(edit.oldRange, edit.newText, { normalizeLineEndings: false });
+      expect(apply.getText()).toBe(plan.text);
+    } finally {
+      apply.destroy();
+    }
+  });
+
+  it("preserves mixed line endings and opaque bytes while reconstructing the whole target", async () => {
+    const source = "# %% First\r\nx=1\r\n# %% [raw]\npayload <😀>\r\n# %% Last\r\ny=2\r\n";
+    const batch = await createBatch([block(1, "x=1\r\n"), block(5, "y=2\r\n")], options(source));
+    const plan = await batch.getEditPlan(
+      batch.text.replace("x=1", "x = 1").replace("y=2", "y = 2"),
+    );
+    expect(plan.text).toBe(source.replace("x=1", "x = 1").replace("y=2", "y = 2"));
+    expect(plan.edits.every((edit) => [1, 5].includes(edit.oldRange.start.row))).toBe(true);
+  });
+
+  it("falls back safely when the native differ groups a hunk across a protected header", async () => {
+    const source = "# %% First\nx=1\n# %% Last\ny=2\n";
+    const batch = await createBatch([block(1, "x=1\n"), block(3, "y=2\n")], options(source));
+    const original = TextBuffer.prototype.getChangesSinceCheckpoint;
+    let calls = 0;
+    spyOn(TextBuffer.prototype, "getChangesSinceCheckpoint").and.callFake(function (...args) {
+      if (++calls === 1)
+        return [{ oldRange: new Range([0, 0], [4, 0]), newText: "unsafe grouped replacement" }];
+      return original.apply(this, args);
+    });
+    const plan = await batch.getEditPlan(
+      batch.text.replace("x=1", "x = 1").replace("y=2", "y = 2"),
+    );
+    expect(plan.fallback).toBe(true);
+    expect(plan.text).toBe(source.replace("x=1", "x = 1").replace("y=2", "y = 2"));
+    expect(plan.edits.every((edit) => [1, 3].includes(edit.oldRange.start.row))).toBe(true);
+  });
+
+  it("rejects edits outside the captured selection and source changes during restoration", async () => {
+    const source = "# %%\nx=1; y=2\n";
+    const selected = new Range([1, 0], [1, 3]);
+    const batch = await createBatch([block(1, "x=1; y=2\n")], {
+      ...options(source),
+      range: selected,
+    });
+    expect(await batch.getEditPlan("x = 1; y = 2\n")).toBeNull();
+    let current = true;
+    const stale = await createBatch(
+      [
+        block(1, "x=1; y=2\n", (text) => {
+          current = false;
+          return text;
+        }),
+      ],
+      { source, isCurrent: () => current },
+    );
+    expect(await stale.getEditPlan("x = 1; y = 2\n")).toBeNull();
   });
 });

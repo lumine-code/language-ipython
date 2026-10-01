@@ -1,5 +1,4 @@
-; IPython-only statements provided by tree-sitter-ipython.
-; Appended after the Python-compatible highlights for the .ipy grammar.
+; Document structure and IPython syntax; Python bodies use language-python.
 
 (magic_statement) @support.function.magic.ipython
 (magic_expression) @support.function.magic.ipython

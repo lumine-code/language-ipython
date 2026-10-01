@@ -52,10 +52,10 @@ describe("language-ipython package", () => {
     mainModule.consumeTodoInjection(todo);
 
     expect(hyperlink.addInjectionPoint).toHaveBeenCalledWith("source.python.ipy", {
-      types: ["comment", "cell_marker_name", "string_content"],
+      types: ["cell_marker_name"],
     });
     expect(todo.addInjectionPoint).toHaveBeenCalledWith("source.python.ipy", {
-      types: ["comment", "cell_marker_name"],
+      types: ["cell_marker_name"],
     });
   });
 });

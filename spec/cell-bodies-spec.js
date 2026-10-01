@@ -11,6 +11,8 @@ describe("IPython cell bodies", () => {
     mode
       .getAllInjectionLayers()
       .filter((layer) => ["markdown_cell", "cell_magic"].includes(layer.injectionPoint?.type));
+  const pythonLayer = () =>
+    mode.getAllInjectionLayers().find((layer) => layer.injectionPoint?.type === "python_cell_body");
 
   async function setUp(source) {
     editor = await lumine.workspace.open();
@@ -75,8 +77,8 @@ describe("IPython cell bodies", () => {
     ]);
     expect(legacy.map((node) => node.startPosition.row)).toEqual([0, 4, 10, 13]);
     expect(
-      root()
-        .descendantsOfType("comment")
+      pythonLayer()
+        .tree.rootNode.descendantsOfType("comment")
         .map((node) => node.text),
     ).toEqual(["#$$p# Timed annotation", "#$$v# Inline annotation"]);
     expect(root().descendantsOfType("markdown_cell")[0].childForFieldName("body").text).toBe(
@@ -102,8 +104,7 @@ describe("IPython cell bodies", () => {
     expect(root().namedChildren.map((node) => node.type)).toEqual([
       "markdown_cell",
       "markdown_cell",
-      "cell_marker",
-      "assignment",
+      "code_cell",
     ]);
     expect(bodyLayers().length).toBe(2);
     expect(scopesAt(1, 2)).toContain("source.gfm");
@@ -120,7 +121,7 @@ describe("IPython cell bodies", () => {
     expect(scopesAt(1, 3)).toContain("text.plain");
     expect(scopesAt(4, 3)).toContain("text.plain");
     expect(bodyLayers().length).toBe(0);
-    expect(root().namedChildren.at(-1).type).toBe("assignment");
+    expect(root().namedChildren.at(-1).type).toBe("code_cell");
   });
 
   it("keeps trailing header whitespace out of literal and magic bodies", async () => {
@@ -140,7 +141,6 @@ describe("IPython cell bodies", () => {
       "source.shell",
       "text.html.basic",
       "source.js",
-      "source.python",
     ]);
     expect(scopesAt(0, 3)).toContain("support.function.magic.ipython");
     expect(scopesAt(1, 2)).toContain("source.shell");
@@ -154,13 +154,16 @@ describe("IPython cell bodies", () => {
       "%%capture output\nvalue = 1\ndef work():\n    return value\n# %% Next\nafter = 2\n",
     );
     expect(root().hasError).toBe(false);
-    expect(root().namedChild(0).childForFieldName("body").type).toBe("python_cell_body");
+    expect(root().descendantsOfType("cell_magic")[0].childForFieldName("body").type).toBe(
+      "python_cell_body",
+    );
     const groups = await editor.getGrammarQueryCaptureGroups("tagsQuery");
     const definitions = groups
       .flatMap((group) => group.captures)
       .filter((capture) => capture.name === "definition.constant");
     expect(definitions.map((capture) => capture.node.text)).toEqual(["value = 1", "after = 2"]);
     expect(bodyLayers().length).toBe(0);
+    expect(pythonLayer().grammar.scopeName).toBe("source.python");
   });
 
   it("rebuilds injections after changing a raw marker to Markdown", async () => {
@@ -184,12 +187,81 @@ describe("IPython cell bodies", () => {
     const grammar = lumine.grammars.grammarForScopeName("source.python.ipy");
     expect(grammar.injectionPointsByType.markdown_cell.length).toBe(1);
     expect(grammar.injectionPointsByType.cell_magic.length).toBe(1);
+    expect(grammar.injectionPointsByType.python_cell_body.length).toBe(1);
     await lumine.packages.deactivatePackage("language-ipython");
     expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
     expect(grammar.injectionPointsByType.cell_magic).toBeUndefined();
+    expect(grammar.injectionPointsByType.python_cell_body).toBeUndefined();
     const pack = await lumine.packages.activatePackage(packagePath("language-ipython"));
     expect(pack.mainModule).toBeDefined();
     expect(grammar.injectionPointsByType.markdown_cell.length).toBe(1);
     expect(grammar.injectionPointsByType.cell_magic.length).toBe(1);
+    expect(grammar.injectionPointsByType.python_cell_body.length).toBe(1);
+  });
+
+  it("uses one native Python module across ordinary cells, wrappers and interpreter aliases", async () => {
+    await setUp(
+      "before = 1\n# %% Timed\n%%time\ndef work():\n    return before\n# %% Interpreter\n%%python3\nafter = work()\n# %% Final\nlast = after\n",
+    );
+    expect(root().hasError).toBe(false);
+    expect(
+      root().descendantsOfType(["assignment", "function_definition", "identifier"]).length,
+    ).toBe(0);
+    const layers = mode
+      .getAllInjectionLayers()
+      .filter((layer) => layer.injectionPoint?.type === "python_cell_body");
+    expect(layers.length).toBe(1);
+    expect(layers[0].grammar).toBe(lumine.grammars.grammarForScopeName("source.python"));
+    expect(layers[0].tree.rootNode.hasError).toBe(false);
+    expect(
+      layers[0].tree.rootNode.descendantsOfType("function_definition")[0].childForFieldName("name")
+        .text,
+    ).toBe("work");
+    expect(
+      layers[0].tree.rootNode
+        .descendantsOfType("assignment")
+        .map((node) => node.childForFieldName("left").text),
+    ).toEqual(["before", "after", "last"]);
+  });
+
+  it("omits complete magic rows from native parsing without losing preceding multiline code", async () => {
+    await setUp(
+      "total = (\n    1 + 2\n)\ncwd = %pwd\nfiles = !dir\n%matplotlib inline\n!echo hello\n?total\nlast = total\n",
+    );
+    expect(root().hasError).toBe(false);
+    const python = pythonLayer();
+    expect(python.tree.rootNode.hasError).toBe(false);
+    expect(
+      python.tree.rootNode
+        .descendantsOfType("assignment")
+        .map((node) => node.childForFieldName("left").text),
+    ).toEqual(["total", "last"]);
+    // Layer containment includes range endpoints; probe within each omitted
+    // row rather than at the preceding code range's endpoint.
+    for (let row = 3; row <= 7; row++) expect(python.containsPoint({ row, column: 1 })).toBe(false);
+    expect(scopesAt(3, 8)).toContain("support.function.magic.ipython");
+    expect(scopesAt(4, 10)).toContain("string.unquoted.shell.ipython");
+  });
+
+  it("keeps the scaffold valid when native Python must recover from an omitted magic-only suite", async () => {
+    await setUp("if enabled:\n    %pwd\n# %% Later\nlast = 1\n");
+    expect(root().hasError).toBe(false);
+    expect(root().descendantsOfType("magic_statement").length).toBe(1);
+    expect(pythonLayer().containsPoint({ row: 1, column: 4 })).toBe(false);
+    expect(
+      pythonLayer()
+        .tree.rootNode.descendantsOfType("assignment")
+        .some((node) => node.childForFieldName("left").text === "last"),
+    ).toBe(true);
+  });
+
+  it("uses native Python indentation and folding inside the document scaffold", async () => {
+    await setUp(
+      "# %% Code\ndef work():\n    value = 1\n    return value\n# %% [raw]\n    raw payload\n",
+    );
+    expect(editor.suggestedIndentForBufferRow(2)).toBe(1);
+    expect(editor.isFoldableAtBufferRow(1)).toBe(true);
+    expect(editor.isFoldableAtBufferRow(0)).toBe(true);
+    expect(pythonLayer().containsPoint({ row: 5, column: 4 })).toBe(false);
   });
 });

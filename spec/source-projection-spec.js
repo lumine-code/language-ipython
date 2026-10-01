@@ -219,6 +219,35 @@ describe("IPython source projection service", () => {
     expect(latest.isCurrent()).toBe(true);
   });
 
+  it("prepares one module from the scaffold without walking native Python injections", async () => {
+    await open(
+      "import os\n# %% [markdown]\nsecret = 'Markdown only'\n# %% Timing\n%%time\nvalue = !x\n# %% Result\nresult = os.getcwd()\n",
+    );
+    const mode = editor.getBuffer().getLanguageMode();
+    const pythonLayers = mode.getAllLanguageLayers(
+      (layer) => layer.grammar.scopeName === "source.python",
+    );
+    expect(pythonLayers.length).toBe(1);
+    const walks = pythonLayers.map((layer) => spyOn(layer.tree, "walk").and.callThrough());
+    const rootWalk = spyOn(mode.rootLanguageLayer.tree, "walk").and.callThrough();
+    const creates = spyOn(mode, "createParserForLanguage").and.callThrough();
+    // Use the current service generation, without its already prepared cache.
+    const isolated = new service.constructor();
+    try {
+      const projection = await isolated.project(editor);
+      expect(projection.text).toContain("import os\n");
+      expect(projection.text).toContain("value = eval('')\n");
+      expect(projection.text).toContain("result = os.getcwd()\n");
+      expect(projection.text).not.toContain("Markdown only");
+      expect(projection.text).not.toContain("%%time");
+      expect(rootWalk.calls.count()).toBe(1);
+      for (const walk of walks) expect(walk).not.toHaveBeenCalled();
+      expect(creates).not.toHaveBeenCalled();
+    } finally {
+      isolated.dispose();
+    }
+  });
+
   it("keeps a shared-buffer snapshot current after its first split closes", async () => {
     const builds = spyOn(service, "buildSnapshot").and.callThrough();
     const first = await open("value = !x\n");

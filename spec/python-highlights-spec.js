@@ -2,7 +2,7 @@ const { Point } = require("lumine");
 const fs = require("fs");
 const path = require("path");
 
-const highlightsPath = path.join(__dirname, "..", "grammars", "python-highlights.scm");
+let highlightsPath;
 
 const CTYPES_FIXTURE_ROWS = 12462;
 const CTYPES_FIXTURE_COMMENT_ROWS = 9163;
@@ -33,11 +33,17 @@ function buildCtypesFixture() {
   return lines.join("\r\n");
 }
 
-describe("IPython base Python highlights", () => {
+describe("IPython native Python highlights", () => {
   let editor;
   let languageMode;
 
   beforeEach(async () => {
+    await lumine.packages.activatePackage(path.resolve(__dirname, "..", "..", "language-python"));
+    const grammar = lumine.grammars.grammarForScopeName("source.python");
+    highlightsPath = path.resolve(
+      path.dirname(grammar.grammarFilePath),
+      grammar.queryPaths.highlightsQuery,
+    );
     await lumine.packages.activatePackage("language-ipython");
   });
 
@@ -48,7 +54,7 @@ describe("IPython base Python highlights", () => {
     editor.setText(text);
     lumine.grammars.assignLanguageMode(editor.getBuffer(), "source.python.ipy");
     languageMode = editor.getBuffer().languageMode;
-    await languageMode.ready;
+    await editor.whenGrammarSettled();
   }
 
   function columnFor(row, text, occurrence = 0) {
@@ -73,9 +79,11 @@ describe("IPython base Python highlights", () => {
             startPosition: new Point(startRow, 0),
             endPosition: new Point(endRow, 0),
           };
-    const capturesQuery = await editor.getGrammar().getQuery("highlightsQuery");
-    const queryRoot = editor.getSyntaxNodeAtBufferPosition([0, 0], (node) => !node.parent);
-    return capturesQuery.captures(queryRoot, options);
+    const layer = languageMode
+      .getAllInjectionLayers()
+      .find((candidate) => candidate.injectionPoint?.type === "python_cell_body");
+    const capturesQuery = await layer.grammar.getQuery("highlightsQuery");
+    return capturesQuery.captures(layer.tree.rootNode, options);
   }
 
   it("keeps unbounded containers leaf-rooted", () => {
@@ -223,7 +231,7 @@ def __len__(self):
     expect(resolvedCaptures.map((capture) => capture.node.startPosition.row)).toEqual([9]);
   });
 
-  it("uses the rebuilt parser that excludes CR from format specifiers", async () => {
+  it("uses the installed native Python parser for format specifiers", async () => {
     await setUp('value = f"""{item:>10\r\n}"""');
 
     let formatSpecifier = editor.getSyntaxNodeAtBufferPosition([
@@ -233,10 +241,20 @@ def __len__(self):
     while (formatSpecifier && formatSpecifier.type !== "format_specifier") {
       formatSpecifier = formatSpecifier.parent;
     }
-    expect(formatSpecifier.text).toBe(":>10");
-    expect(formatSpecifier.endPosition).toEqual(
-      new Point(0, editor.lineTextForBufferRow(0).length),
-    );
+    const native = lumine.workspace.buildTextEditor();
+    try {
+      native.setText(editor.getText());
+      lumine.grammars.assignLanguageMode(native.getBuffer(), "source.python");
+      await native.whenGrammarSettled();
+      const reference = native
+        .getBuffer()
+        .getLanguageMode()
+        .tree.rootNode.descendantsOfType("format_specifier")[0];
+      expect(formatSpecifier.text).toBe(reference.text);
+      expect(formatSpecifier.range).toEqual(reference.range);
+    } finally {
+      native.destroy();
+    }
   });
 
   it("keeps raw capture counts bounded for a large CRLF ctypes fixture", async () => {
