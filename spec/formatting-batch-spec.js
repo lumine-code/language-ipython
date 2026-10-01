@@ -134,13 +134,15 @@ describe("IPython formatting batches", () => {
     );
     const batch = await createBatch(bodies, options(source));
     const checkpoints = spyOn(TextBuffer.prototype, "createCheckpoint").and.callThrough();
-    const diffs = spyOn(TextBuffer.prototype, "setTextViaDiff").and.callThrough();
+    const diffs = spyOn(TextBuffer.prototype, "getChangesToText").and.callThrough();
+    const mutations = spyOn(TextBuffer.prototype, "setTextViaDiff").and.callThrough();
     const destroyed = spyOn(TextBuffer.prototype, "destroy").and.callThrough();
     const plan = await batch.getEditPlan(batch.text.replaceAll("=1", " = 1"));
     expect(plan.text).toBe(source.replaceAll("=1", " = 1"));
     expect(plan.fallback).toBe(false);
-    expect(checkpoints).toHaveBeenCalledTimes(1);
+    expect(checkpoints).not.toHaveBeenCalled();
     expect(diffs).toHaveBeenCalledTimes(1);
+    expect(mutations).not.toHaveBeenCalled();
     expect(destroyed).toHaveBeenCalledTimes(1);
     const apply = new TextBuffer({ text: source });
     try {
@@ -165,9 +167,9 @@ describe("IPython formatting batches", () => {
   it("falls back safely when the native differ groups a hunk across a protected header", async () => {
     const source = "# %% First\nx=1\n# %% Last\ny=2\n";
     const batch = await createBatch([block(1, "x=1\n"), block(3, "y=2\n")], options(source));
-    const original = TextBuffer.prototype.getChangesSinceCheckpoint;
+    const original = TextBuffer.prototype.getChangesToText;
     let calls = 0;
-    spyOn(TextBuffer.prototype, "getChangesSinceCheckpoint").and.callFake(function (...args) {
+    spyOn(TextBuffer.prototype, "getChangesToText").and.callFake(function (...args) {
       if (++calls === 1)
         return [{ oldRange: new Range([0, 0], [4, 0]), newText: "unsafe grouped replacement" }];
       return original.apply(this, args);

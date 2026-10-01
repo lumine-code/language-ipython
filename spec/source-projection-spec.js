@@ -324,6 +324,34 @@ describe("IPython source projection service", () => {
     expect(await projection.getFormattingBatch()).toBe(null);
   });
 
+  it("allows whole-document replacement only for complete Python formatting", async () => {
+    for (const source of [
+      "value=1\n",
+      "# %% First\nvalue=1\n# %% Last\nnext=2\n",
+      "%%time\nvalue=1\n",
+      "%%python3\nvalue=1\n",
+    ]) {
+      const projection = await open(source);
+      const batch = await projection.getFormattingBatch();
+      expect(
+        (await batch.getEditPlan(batch.text.replace("value=1", "value = 1"))).replaceWholeDocument,
+      ).toBe(true);
+      const partial = await projection.getFormattingBatch(projection.pythonFormattingRegions[0]);
+      expect((await partial.getEditPlan(partial.text)).replaceWholeDocument).toBe(false);
+      editor.destroy();
+      editor = null;
+    }
+    for (const header of ["# %% [markdown]\n", "# %% [raw]\n", "%%html\n", "%%unknown\n"]) {
+      const projection = await open(header + "# %%\nvalue=1\n");
+      const batch = await projection.getFormattingBatch();
+      expect(
+        (await batch.getEditPlan(batch.text.replace("value=1", "value = 1"))).replaceWholeDocument,
+      ).toBe(false);
+      editor.destroy();
+      editor = null;
+    }
+  });
+
   it("converts queried Python rows independently of a large opaque Unicode body", async () => {
     const projection = await open("# %% [raw]\n" + "😀".repeat(65536) + "\n# %%\nvalue = '😀'\n");
     expect(projection.toCodePointPosition([3, 12])).toEqual(new Point(3, 11));
