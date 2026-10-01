@@ -215,6 +215,66 @@ describe("IPython formatting batches", () => {
     expect(await batch.getEditPlan(batch.text)).toBeNull();
   });
 
+  it("matches native original and target coordinates when body changes span lines and suffixes", async () => {
+    const cases = [
+      ["first=1\n# tail\n", "first = 1\n# tail\n"],
+      ["value='😀'\r\n# tail\r\n", "value='😁'\r\n# tail\r\n"],
+      ["first=1; last=2\r\n# tail\r\n", "first = 1\r\nlast = 2\r\n# tail\r\n"],
+      ["first=(\n  1\n)\n", "first = 1\n"],
+      ["first=1\rlast=2\n", "first = 1\rlast = 2\n"],
+      ["last=1", "last = 1\n"],
+    ];
+    for (const [before, after] of cases) {
+      const header = "#%% First\r\n",
+        separator = "#%% Last\n",
+        tail = "tail=1\n";
+      const source = header + before + (/\n$/.test(before) ? separator + tail : "");
+      const original = new TextBuffer({ text: source });
+      try {
+        const firstRange = new Range(
+          original.positionForCharacterIndex(header.length),
+          original.positionForCharacterIndex(header.length + before.length),
+        );
+        const bodies = [{ range: firstRange, text: before, restore: (text) => text }];
+        if (/\n$/.test(before))
+          bodies.push({
+            range: new Range(
+              original.positionForCharacterIndex(source.length - tail.length),
+              original.getEndPosition(),
+            ),
+            text: tail,
+            restore: (text) => text,
+          });
+        const batch = await createBatch(bodies, { ...options(source), allowWholeDocument: true });
+        const plan = await batch.getEditPlan(
+          batch.text.replace(before, after).replace("tail=1", "tail = 1"),
+        );
+        expect(plan).not.toBeNull();
+        const target = new TextBuffer({ text: plan.text });
+        try {
+          let delta = 0;
+          for (const edit of plan.edits) {
+            const start = original.characterIndexForPosition(edit.oldRange.start),
+              end = original.characterIndexForPosition(edit.oldRange.end);
+            const mappedStart = target.positionForCharacterIndex(start + delta),
+              mappedEnd = target.positionForCharacterIndex(start + delta + edit.newText.length);
+            expect(edit.newRange).toEqual(new Range(mappedStart, mappedEnd));
+            delta += edit.newText.length - (end - start);
+          }
+          for (const edit of plan.edits.toSorted((a, b) =>
+            b.oldRange.start.compare(a.oldRange.start),
+          ))
+            original.setTextInRange(edit.oldRange, edit.newText, { normalizeLineEndings: false });
+          expect(original.getText()).toBe(plan.text);
+        } finally {
+          target.destroy();
+        }
+      } finally {
+        original.destroy();
+      }
+    }
+  });
+
   it("caches scalar geometry without native buffers and checks supplied offsets against CRLF positions", async () => {
     const source = "#%% One\r\nname='😀'\r\n#%% Two\r\nvalue=1\r\n";
     const bodies = [block(1, "name='😀'\r\n"), block(3, "value=1\r\n")];
