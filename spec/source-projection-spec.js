@@ -376,6 +376,18 @@ describe("IPython source projection service", () => {
     }
   });
 
+  it("keeps raw/Markdown identity-looking whitespace and empty cells off the canonical host path", async () => {
+    for (const prefix of ["# %% [raw]\n \n", "# %% [markdown]\n", "# %% Empty\n", "%%time\n"]) {
+      const source = prefix + "# %% One\nfirst=1\n# %% Two\nlast=2\n";
+      const projection = await open(source),
+        batch = await projection.getFormattingBatch();
+      expect(batch.text).not.toBe(source);
+      expect(batch.text).toContain("__lumine_ipy_batch_");
+      editor.destroy();
+      editor = null;
+    }
+  });
+
   it("converts queried Python rows independently of a large opaque Unicode body", async () => {
     const projection = await open("# %% [raw]\n" + "😀".repeat(65536) + "\n# %%\nvalue = '😀'\n");
     expect(projection.toCodePointPosition([3, 12])).toEqual(new Point(3, 11));

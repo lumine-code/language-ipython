@@ -43,7 +43,7 @@ The document parser recognizes cells and IPython syntax; it does not fork the Py
 
 ## Services
 
-- `ipython.source`: provided to share an AST-based Python analysis projection, safe position/edit mapping and lazy reversible Python-body formatting in one backend batch. See the [service contract](docs/ipython.source.md).
+- `ipython.source`: provided to share an AST-based Python analysis projection, safe position/edit mapping and lazy reversible Python-body formatting in one backend batch. Complete Python-only documents can keep their original canonical headers; every protected header and body is validated before edits apply. See the [service contract](docs/ipython.source.md).
 - `hyperlink.injection`: consumed to highlight URLs in comments, strings, and cell titles as clickable links.
 - `todo.injection`: consumed to highlight `TODO`-style markers in comments and cell titles.
 

@@ -215,6 +215,117 @@ describe("IPython formatting batches", () => {
     expect(await batch.getEditPlan(batch.text)).toBeNull();
   });
 
+  it("uses complete canonical Python input with exact header restoration and one-module semantics", async () => {
+    const source = "# %% One\r\nfirst=1\r\n# %% Two\r\nlast=2\r\n";
+    const bodies = [block(1, "first=1\r\n"), block(3, "last=2\r\n")];
+    const geometry = bodies.map((body) => ({
+      range: body.range,
+      start: source.indexOf(body.text),
+      end: source.indexOf(body.text) + body.text.length,
+    }));
+    const batch = await createBatch(bodies, {
+      ...options(source),
+      allowWholeDocument: true,
+      sourceGeometry: geometry,
+    });
+    expect(batch.text).toBe(source);
+    const formatted = source.replaceAll("=", " = ").replaceAll("\r\n", "\n");
+    const plan = await batch.getEditPlan(formatted);
+    expect(plan.text).toBe("# %% One\r\nfirst = 1\n# %% Two\r\nlast = 2\n");
+    expect(plan.edits.every((edit) => [1, 3].includes(edit.oldRange.start.row))).toBe(true);
+    for (const unsafe of [
+      formatted.replace("# %% One", "# %% Changed"),
+      formatted.replace("# %% One", "#%% One"),
+      formatted.replace("# %% Two\n", ""),
+      formatted.replace("# %% Two", "# %% Added\n# %% Two"),
+      formatted.replace("# %% One", "# %% Two").replace(/# %% Two(?=\nlast)/, "# %% One"),
+    ])
+      expect(await batch.getEditPlan(unsafe)).toBeNull();
+  });
+
+  it("keeps noncanonical, duplicate, opaque and synthetic cases on the existing fenced path", async () => {
+    for (const markers of [
+      ["#%% One", "#%% Two"],
+      ["# %% Same", "# %% Same"],
+    ]) {
+      const source = `${markers[0]}\nfirst=1\n${markers[1]}\nlast=2\n`;
+      const bodies = [block(1, "first=1\n"), block(3, "last=2\n")];
+      const geometry = bodies.map((body) => ({
+        range: body.range,
+        start: source.indexOf(body.text),
+        end: source.indexOf(body.text) + body.text.length,
+      }));
+      const batch = await createBatch(bodies, {
+        ...options(source),
+        allowWholeDocument: true,
+        sourceGeometry: geometry,
+      });
+      expect(batch.text).toContain("__lumine_ipy_batch_");
+    }
+    const source = "# %% One\nfirst=1\n# %% Two\n%pwd\n";
+    const bodies = [block(1, "first=1\n"), block(3, "synthetic_command()\n")];
+    const geometry = [
+      { range: bodies[0].range, start: source.indexOf("first=1"), end: source.indexOf("# %% Two") },
+      { range: bodies[1].range, start: source.indexOf("%pwd"), end: source.length },
+    ];
+    expect(
+      (
+        await createBatch(bodies, {
+          ...options(source),
+          allowWholeDocument: true,
+          sourceGeometry: geometry,
+        })
+      ).text,
+    ).toContain("__lumine_ipy_batch_");
+    expect(
+      (await createBatch(bodies, { ...options(source), sourceGeometry: geometry })).text,
+    ).toContain("__lumine_ipy_batch_");
+  });
+
+  it("reuses the PEP701 lexer for host headers and ignores marker text inside bodies", async () => {
+    const before =
+      'value = f"""{f"{ "nested" }"!s:>{width}}\n# %% Quoted\n"""\nitems = [\n# %% Bracket\n1,\n]\nvalue = \\\n# %% Continued\n1\n';
+    const header = "# %% One\n",
+      middle = "# %% Two\n",
+      after = "last=2\n";
+    const source = header + before + middle + after;
+    const buffer = new TextBuffer({ text: source });
+    try {
+      const bodies = [
+        {
+          range: new Range([1, 0], buffer.positionForCharacterIndex(header.length + before.length)),
+          text: before,
+          restore: (text) => text,
+        },
+        {
+          range: new Range(
+            buffer.positionForCharacterIndex(source.length - after.length),
+            buffer.getEndPosition(),
+          ),
+          text: after,
+          restore: (text) => text,
+        },
+      ];
+      const geometry = bodies.map((body) => ({
+        range: body.range,
+        start: source.indexOf(body.text),
+        end: source.indexOf(body.text) + body.text.length,
+      }));
+      const batch = await createBatch(bodies, {
+        ...options(source),
+        allowWholeDocument: true,
+        sourceGeometry: geometry,
+      });
+      expect(batch.text).toBe(source);
+      expect((await batch.getEditPlan(source.replace("last=2", "last = 2"))).text).toBe(
+        source.replace("last=2", "last = 2"),
+      );
+      expect(await batch.getEditPlan(source.replace("last=2", "# %% Extra\nlast = 2"))).toBeNull();
+    } finally {
+      buffer.destroy();
+    }
+  });
+
   it("matches native original and target coordinates when body changes span lines and suffixes", async () => {
     const cases = [
       ["first=1\n# tail\n", "first = 1\n# tail\n"],
