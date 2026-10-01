@@ -81,7 +81,9 @@ describe("IPython native Python highlights", () => {
           };
     const layer = languageMode
       .getAllInjectionLayers()
-      .find((candidate) => candidate.injectionPoint?.type === "python_cell_body");
+      .find(
+        (candidate) => candidate.depth === 1 && candidate.grammar.scopeName === "source.python",
+      );
     const capturesQuery = await layer.grammar.getQuery("highlightsQuery");
     return capturesQuery.captures(layer.tree.rootNode, options);
   }

@@ -16,7 +16,9 @@ describe("IPython cell bodies", () => {
       .getAllInjectionLayers()
       .filter((layer) => layer.depth === 1 && layer.grammar.scopeName !== "source.python");
   const pythonLayer = () =>
-    mode.getAllInjectionLayers().find((layer) => layer.injectionPoint?.type === "python_cell_body");
+    mode
+      .getAllInjectionLayers()
+      .find((layer) => layer.depth === 1 && layer.grammar.scopeName === "source.python");
 
   async function setUp(source) {
     editor = await lumine.workspace.open();
@@ -187,11 +189,11 @@ describe("IPython cell bodies", () => {
     expect(scopesAt(1, 3)).toContain("source.gfm");
   });
 
-  it("disposes its projected Python rule and preserves static cell bodies after reactivation", async () => {
+  it("uses static language rules without adding duplicate registrations after reactivation", async () => {
     const grammar = lumine.grammars.grammarForScopeName("source.python.ipy");
     expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
     expect(grammar.injectionPointsByType.cell_magic).toBeUndefined();
-    expect(grammar.injectionPointsByType.python_cell_body.length).toBe(1);
+    expect(grammar.injectionPointsByType.python_cell_body).toBeUndefined();
     await lumine.packages.deactivatePackage("language-ipython");
     expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
     expect(grammar.injectionPointsByType.cell_magic).toBeUndefined();
@@ -200,7 +202,7 @@ describe("IPython cell bodies", () => {
     expect(pack.mainModule).toBeDefined();
     expect(grammar.injectionPointsByType.markdown_cell).toBeUndefined();
     expect(grammar.injectionPointsByType.cell_magic).toBeUndefined();
-    expect(grammar.injectionPointsByType.python_cell_body.length).toBe(1);
+    expect(grammar.injectionPointsByType.python_cell_body).toBeUndefined();
     await setUp("# %% [markdown]\n# Heading\n# %%\n%%html\n<h1>Hi</h1>\n# %%\nvalue = 1\n");
     expect(bodyLayers().map((layer) => layer.grammar.scopeName)).toEqual([
       "source.gfm",
@@ -219,7 +221,7 @@ describe("IPython cell bodies", () => {
     ).toBe(0);
     const layers = mode
       .getAllInjectionLayers()
-      .filter((layer) => layer.injectionPoint?.type === "python_cell_body");
+      .filter((layer) => layer.depth === 1 && layer.grammar.scopeName === "source.python");
     expect(layers.length).toBe(1);
     expect(layers[0].grammar).toBe(lumine.grammars.grammarForScopeName("source.python"));
     expect(layers[0].tree.rootNode.hasError).toBe(false);

@@ -8,6 +8,7 @@ IPython language support.
 - **Syntax highlighting**: uses the original Python grammar for code and highlights magics, shell escapes, help requests, and cell headers through a small document grammar.
 - **Cell markers**: parses column-zero `# %% Title` as a named code cell, preserves additional percent signs, and uses `[markdown]`, `[md]`, and `[raw]` for literal bodies; `[code]` explicitly selects code.
 - **Embedded languages**: injects the original Python, Markdown, shell, HTML, JavaScript, XML, LaTeX, Perl, and Ruby grammars; raw and unknown bodies stay plain.
+- **Static injections**: declares body languages in `injections.scm`; magics exclude their complete rows and the remaining Python fragments share one native parser.
 - **Python integration**: inherits Python settings and snippets without maintaining copies.
 - **Folding and symbols**: uses native Python queries for structural editing and exposes named cells alongside Python definitions.
 

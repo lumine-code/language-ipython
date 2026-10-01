@@ -15,7 +15,7 @@
     "start": "# "
   },
   "treeSitter": {
-    "parserSource": "github:lumine-code/tree-sitter-ipython#30f0cc377de1d60baffb3af12ba2605012c1c374",
+    "parserSource": "github:lumine-code/tree-sitter-ipython#1e946312ccccb817c66258105b24ad70cc3eec1e",
     "wasmBuildTool": "tree-sitter-cli#v0.27.0",
     "grammar": "ipython.wasm",
     "highlightsQuery": "ipython-highlights.scm",

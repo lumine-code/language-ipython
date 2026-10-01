@@ -133,7 +133,7 @@ describe("IPython Tree-sitter grammar", () => {
     expect(root.hasError).toBe(false);
     const python = languageMode
       .getAllInjectionLayers()
-      .find((layer) => layer.injectionPoint?.type === "python_cell_body");
+      .find((layer) => layer.depth === 1 && layer.grammar.scopeName === "source.python");
     expect(python.tree.rootNode.descendantsOfType("comment").map((node) => node.text)).toEqual([
       "# first",
       "# timed",
