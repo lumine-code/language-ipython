@@ -167,6 +167,38 @@ describe("IPython source projection service", () => {
     expect(projection.fromCodePointPosition([1, 10])).toEqual(new Point(1, 11));
   });
 
+  it("keeps ASCII endpoints and surrogate pairs correct across Unicode chunk boundaries", async () => {
+    const prefix = "value = '";
+    const source =
+      prefix + "x".repeat(4095 - prefix.length) + "😀" + "x".repeat(8192 - 4097) + "😀tail'\n";
+    const projection = await open(source);
+    for (const mapper of [projection.sourceToCodePointPosition, projection.toCodePointPosition]) {
+      expect(mapper([0, 0])).toEqual(new Point(0, 0));
+      expect(mapper([0, 4095])).toEqual(new Point(0, 4095));
+      expect(mapper([0, 4096])).toBe(null);
+      expect(mapper([0, 4097])).toEqual(new Point(0, 4096));
+      expect(mapper([0, 8192])).toEqual(new Point(0, 8191));
+      expect(mapper([0, 8193])).toBe(null);
+      expect(mapper([0, 8194])).toEqual(new Point(0, 8192));
+      expect(mapper([0, source.length - 1])).toEqual(new Point(0, source.length - 3));
+    }
+    for (const mapper of [
+      projection.sourceFromCodePointPosition,
+      projection.fromCodePointPosition,
+    ]) {
+      expect(mapper([0, 4095])).toEqual(new Point(0, 4095));
+      expect(mapper([0, 4096])).toEqual(new Point(0, 4097));
+      expect(mapper([0, 8191])).toEqual(new Point(0, 8192));
+      expect(mapper([0, 8192])).toEqual(new Point(0, 8194));
+      expect(mapper([0, source.length - 3])).toEqual(new Point(0, source.length - 1));
+    }
+    editor.setText("value = 1\n");
+    const ascii = await service.project(editor);
+    expect(ascii.toCodePointPosition([0, 0])).toEqual(new Point(0, 0));
+    expect(ascii.fromCodePointPosition([0, 9])).toEqual(new Point(0, 9));
+    expect(ascii.fromCodePointPosition([0, 10])).toBe(null);
+  });
+
   it("shares one AST snapshot per revision without creating another parser", async () => {
     const builds = spyOn(service, "buildSnapshot").and.callThrough();
     await open("value = 1\n%pwd\n");
