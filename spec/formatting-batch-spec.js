@@ -197,6 +197,24 @@ describe("IPython formatting batches", () => {
     expect(plan.text).toBe(source.replaceAll("=", " = "));
   });
 
+  it("returns original bytes and no edits for a current validated identity result", async () => {
+    const source = "#%% Code\r\nvalue = 1\r\n";
+    const body = block(1, "value = 1\r\n");
+    const restore = spyOn(body, "restore").and.callThrough();
+    let current = true;
+    const batch = await createBatch([body], {
+      source,
+      allowWholeDocument: true,
+      isCurrent: () => current,
+    });
+    const result = await batch.getEditPlan(batch.text);
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(result.text).toBe(source);
+    expect(result.edits).toEqual([]);
+    current = false;
+    expect(await batch.getEditPlan(batch.text)).toBeNull();
+  });
+
   it("caches scalar geometry without native buffers and checks supplied offsets against CRLF positions", async () => {
     const source = "#%% One\r\nname='😀'\r\n#%% Two\r\nvalue=1\r\n";
     const bodies = [block(1, "name='😀'\r\n"), block(3, "value=1\r\n")];
