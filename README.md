@@ -6,7 +6,7 @@ IPython language support.
 
 - **Grammars**: provides Tree-sitter grammars built from [lumine-code/tree-sitter-ipython](https://github.com/lumine-code/tree-sitter-ipython).
 - **Syntax highlighting**: uses the original Python grammar for code and highlights magics, shell escapes, help requests, and cell headers through a small document grammar.
-- **Cell markers**: parses column-zero `# %% Title` as a named code cell, preserves additional percent signs, and uses `[markdown]`, `[md]`, and `[raw]` for literal bodies; `[code]` explicitly selects code.
+- **Cell markers**: parses column-zero `#%%`, `# %% Title`, and navigation annotations such as `#%%$#` and `#%%$$p#` as code-cell headers, preserves additional percent signs, and uses `[markdown]`, `[md]`, and `[raw]` for literal bodies; `[code]` explicitly selects code.
 - **Embedded languages**: injects the original Python, Markdown, shell, HTML, JavaScript, XML, LaTeX, Perl, and Ruby grammars; raw and unknown bodies stay plain.
 - **Static injections**: declares body languages in `ipython-injections.scm`; magics exclude their complete rows and the remaining Python fragments share one native parser.
 - **Python integration**: inherits Python settings and snippets without maintaining copies.
@@ -35,7 +35,7 @@ echo hello
 
 Metadata is case-sensitive and must immediately follow the marker's percent run as a complete word. `[markdown]` and `[md]` mean Markdown; `[raw]` means raw; `[code]` means code. Bare `markdown`, `md`, and `raw`, and unknown metadata stay code-cell titles. Markers inside Python strings, brackets, continued expressions, or indented blocks do not split cells. A column-zero marker is reserved inside literal bodies too; indent it to include it as text.
 
-Navigation panel keeps its own annotations, including `#%%$#` and `#%%$$#`. These remain compatible with the document grammar; navigation behavior is owned by that package.
+Compact `#%%` and navigation annotations such as `#%%$#`, `#%%$$p#`, and `#%%$$v+_<;#` start code cells under the same boundary rules. Everything after the percent run remains the header title, including navigation flags; a later `[markdown]` or `[raw]` inside that title does not select a type. Headers retain comment highlighting and stay outside the injected Python body. Navigation panel keeps its existing annotation syntax, hierarchy and flags; plain `#%%` and `# %% Title` do not create entries in that panel.
 
 Cell magics must occupy the first nonblank line in a code cell. Their entire body belongs to that magic until the next cell marker or EOF. `time`, `timeit`, `prun`, `debug`, `capture`, and `code_wrap` keep Python syntax and symbols. Other known names inject the corresponding installed language grammar; `script`, `writefile`, `file`, `cmd`, and custom magics keep a plain body. Language highlighting never changes which kernel executes a code cell.
 

@@ -44,6 +44,90 @@ describe("IPython cell bodies", () => {
 
   afterEach(() => editor?.destroy());
 
+  it("treats compact and flagged navigation markers as code-cell headers", async () => {
+    const headers = [
+      "#%%",
+      "#%%$#",
+      "#%%$$p# Definitions",
+      "#%%$$s*_<;# Strings",
+      "#%%$$v+;_<# Variables",
+      "#%%$$1-<_;# First word",
+      "#%%?!_<;# Automatic",
+      "#%%$$# [markdown] remains a title",
+    ];
+    await setUp(
+      headers.map((header, index) => `${header}\r\nvalue_${index} = ${index}\r\n`).join("") +
+        "#%%$$p#",
+    );
+    expect(root().hasError).toBe(false);
+    const cells = root().namedChildren;
+    expect(cells.map((node) => node.type)).toEqual(Array(headers.length + 1).fill("code_cell"));
+    for (let index = 0; index < headers.length; index++) {
+      const marker = cells[index].childForFieldName("marker");
+      expect(marker.text).toBe(headers[index]);
+      expect(marker.childForFieldName("marker").text).toBe("#%%");
+      expect(marker.childForFieldName("metadata")).toBeNull();
+      expect(cells[index].childForFieldName("body").text).toBe(`value_${index} = ${index}\r\n`);
+      for (const column of [0, 1, headers[index].length - 1]) {
+        expect(scopesAt(index * 2, column)).toContain(
+          "comment.line.number-sign.cell-marker.ipython",
+        );
+      }
+      expect(scopesAt(index * 2 + 1, 1)).toContain("source.python");
+    }
+    expect(cells.at(-1).childForFieldName("marker").text).toBe("#%%$$p#");
+    expect(cells.at(-1).childForFieldName("body")).toBeNull();
+    const python = pythonLayer();
+    expect(python.tree.rootNode.hasError).toBe(false);
+    expect(python.tree.rootNode.descendantsOfType("comment")).toEqual([]);
+    expect(python.tree.rootNode.descendantsOfType("assignment").length).toBe(headers.length);
+    expect(
+      mode.getAllInjectionLayers().filter((layer) => layer.grammar.scopeName === "source.python")
+        .length,
+    ).toBe(1);
+  });
+
+  it("updates cell boundaries when adding or removing percent signs from a navigation marker", async () => {
+    await setUp("#%%$# First\nbefore = 1\n#$$p# Later\nafter = 2\n");
+    const python = pythonLayer();
+    const parser = mode.getOrCreateParserForLanguage(python.language);
+    expect(parser).toBeDefined();
+    expect(root().namedChildren.length).toBe(1);
+    expect(python.tree.rootNode.descendantsOfType("comment").map((node) => node.text)).toEqual([
+      "#$$p# Later",
+    ]);
+    editor.setTextInBufferRange(
+      [
+        [2, 1],
+        [2, 1],
+      ],
+      "%%",
+    );
+    await mode.atGrammarSettlement();
+    expect(root().hasError).toBe(false);
+    expect(root().namedChildren.length).toBe(2);
+    expect(root().namedChild(1).childForFieldName("marker").text).toBe("#%%$$p# Later");
+    expect(pythonLayer()).toBe(python);
+    expect(mode.getOrCreateParserForLanguage(python.language)).toBe(parser);
+    expect(python.tree.rootNode.descendantsOfType("comment")).toEqual([]);
+    expect(scopesAt(2, 4)).toContain("comment.line.number-sign.cell-marker.ipython");
+    editor.setTextInBufferRange(
+      [
+        [2, 1],
+        [2, 3],
+      ],
+      "",
+    );
+    await mode.atGrammarSettlement();
+    expect(root().hasError).toBe(false);
+    expect(root().namedChildren.length).toBe(1);
+    expect(pythonLayer()).toBe(python);
+    expect(mode.getOrCreateParserForLanguage(python.language)).toBe(parser);
+    expect(python.tree.rootNode.descendantsOfType("comment").map((node) => node.text)).toEqual([
+      "#$$p# Later",
+    ]);
+  });
+
   it("preserves legacy navigation annotations beside literal and magic cells", async () => {
     await setUp(
       [
