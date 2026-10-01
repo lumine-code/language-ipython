@@ -303,6 +303,12 @@ describe("IPython source projection service", () => {
     expect(first.length).toBe(2);
     expect(positions.calls.count()).toBe(4);
     const batch = await projection.getFormattingBatch();
+    const [cachedFirst, cachedSecond] = await Promise.all([
+      projection.getFormattingBatch(),
+      projection.getFormattingBatch(),
+    ]);
+    expect(cachedFirst).toBe(batch);
+    expect(cachedSecond).toBe(batch);
     expect(batch.restore(batch.text)).toEqual(
       first.map((block) => ({
         range: block.range,

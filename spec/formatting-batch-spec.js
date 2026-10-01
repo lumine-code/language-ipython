@@ -1,4 +1,4 @@
-const { Range, TextBuffer } = require("lumine");
+const { Point, Range, TextBuffer } = require("lumine");
 const createBatch = require("../lib/formatting-batch");
 
 describe("IPython formatting batches", () => {
@@ -151,6 +151,60 @@ describe("IPython formatting batches", () => {
       expect(apply.getText()).toBe(plan.text);
     } finally {
       apply.destroy();
+    }
+  });
+
+  it("prepares 1000 Python-only bodies without a native diff or scratch mutation", async () => {
+    const source = Array.from(
+      { length: 1000 },
+      (_, index) => `#%% Cell ${index}\nvalue_${index}=1\n`,
+    ).join("");
+    const blocks = Array.from({ length: 1000 }, (_, index) =>
+      block(index * 2 + 1, `value_${index}=1\n`),
+    );
+    const batch = await createBatch(blocks, { ...options(source), allowWholeDocument: true });
+    const diff = spyOn(TextBuffer.prototype, "getChangesToText").and.callThrough();
+    const mutation = spyOn(TextBuffer.prototype, "setText").and.callThrough();
+    const plan = await batch.getEditPlan(batch.text.replaceAll("=1", " = 1"), [new Point(0, 0)]);
+    expect(diff).not.toHaveBeenCalled();
+    expect(mutation).not.toHaveBeenCalled();
+    expect(plan.edits.length).toBe(1000);
+    expect(plan.replaceWholeDocument).toBe(true);
+    expect(plan.text).toBe(source.replaceAll("=1", " = 1"));
+    expect(plan.edits.every((edit) => edit.oldRange.start.row % 2 === 1)).toBe(true);
+  });
+
+  it("refines only changed Python bodies containing a selection endpoint", async () => {
+    const source = "#%% One\nfirst=1; middle=2\n#%% Two\nother=3; last=4\n";
+    const batch = await createBatch(
+      [block(1, "first=1; middle=2\n"), block(3, "other=3; last=4\n")],
+      { ...options(source), allowWholeDocument: true },
+    );
+    const diff = spyOn(TextBuffer.prototype, "getChangesToText").and.callThrough();
+    const plan = await batch.getEditPlan(batch.text.replaceAll("=", " = "), [
+      new Point(1, 10),
+      new Point(1, 16),
+    ]);
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(plan.edits.filter((edit) => edit.oldRange.start.row === 1).length).toBe(4);
+    expect(plan.edits.filter((edit) => edit.oldRange.start.row === 3).length).toBe(1);
+    expect(plan.text).toBe(source.replaceAll("=", " = "));
+  });
+
+  it("keeps UTF-16 surrogate pairs and CRLF intact at fast trim boundaries", async () => {
+    const source = "value='😀'\r\n",
+      target = "value='😁'\n";
+    const body = { ...block(0, source), range: new Range([0, 0], [1, 0]) };
+    const batch = await createBatch([body], { ...options(source), allowWholeDocument: true });
+    const plan = await batch.getEditPlan(target);
+    expect(plan.edits[0].oldRange.start).toEqual(new Point(0, 7));
+    const copy = new TextBuffer({ text: source });
+    try {
+      for (const edit of plan.edits)
+        copy.setTextInRange(edit.oldRange, edit.newText, { normalizeLineEndings: false });
+      expect(copy.getText()).toBe(target);
+    } finally {
+      copy.destroy();
     }
   });
 
