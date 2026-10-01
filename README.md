@@ -41,11 +41,11 @@ Cell magics must occupy the first nonblank line in a code cell. Their entire bod
 
 The document parser recognizes cells and IPython syntax; it does not fork the Python grammar. All Python bodies share one native Python injection. Entire physical rows containing line magics, shell escapes, help requests or magic assignments are omitted from that syntax tree, so a magic assignment cannot leave a dangling right-hand side. Python may recover from an empty suite after such an omission. The document scaffold remains valid, and Python tooling receives the separate valid one-document projection, which retains assignment names and preserves source coordinates. No second IPython parser or virtual parser input is used.
 
-## Services
+## Services and Injections
 
 - `ipython.source`: provided to share an AST-based Python analysis projection, safe position/edit mapping and lazy reversible Python-body formatting in one backend batch. Complete Python-only documents can keep their original canonical headers; every protected header and body is validated before edits apply. See the [service contract](docs/ipython.source.md).
-- `hyperlink.injection`: consumed to highlight URLs in comments, strings, and cell titles as clickable links.
-- `todo.injection`: consumed to highlight `TODO`-style markers in comments and cell titles.
+- Static Tree-sitter injections highlight URLs with `language-hyperlink`.
+- Static Tree-sitter injections highlight comment markers with `language-todo`.
 
 ## Contributing
 

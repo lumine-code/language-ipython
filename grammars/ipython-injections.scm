@@ -81,3 +81,11 @@
   (#set! injection.language "ruby")
   (#set! injection.include-children)
   (#set! injection.cover-shallower-scopes))
+
+((cell_marker_name) @injection.owner @injection.content
+  (#set! injection.language "hyperlink")
+  (#set! injection.language-scope "none"))
+
+((cell_marker_name) @injection.owner @injection.content
+  (#set! injection.language "todo")
+  (#set! injection.language-scope "none"))

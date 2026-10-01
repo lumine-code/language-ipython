@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-let mainModule;
 
 const packageRoot = path.resolve(__dirname, "..");
 const packagePath = (name) => {
@@ -11,8 +10,7 @@ const packagePath = (name) => {
 describe("language-ipython package", () => {
   beforeEach(async () => {
     await lumine.packages.activatePackage(packagePath("language-python"));
-    const pack = await lumine.packages.activatePackage("language-ipython");
-    mainModule = pack.mainModule;
+    await lumine.packages.activatePackage("language-ipython");
   });
 
   it("owns .ipy files with a Tree-sitter grammar", () => {
@@ -47,18 +45,34 @@ describe("language-ipython package", () => {
     expect(snippets.im.body).toContain("import");
   });
 
-  it("keeps comment services active inside cell marker titles", () => {
-    const hyperlink = { addInjectionPoint: jasmine.createSpy("add hyperlink injection") };
-    const todo = { addInjectionPoint: jasmine.createSpy("add TODO injection") };
-
-    mainModule.consumeHyperlinkInjection(hyperlink);
-    mainModule.consumeTodoInjection(todo);
-
-    expect(hyperlink.addInjectionPoint).toHaveBeenCalledWith("source.python.ipy", {
-      types: ["cell_marker_name"],
-    });
-    expect(todo.addInjectionPoint).toHaveBeenCalledWith("source.python.ipy", {
-      types: ["cell_marker_name"],
-    });
+  it("updates static title annotations when target grammars deactivate and reactivate", async () => {
+    await lumine.packages.activatePackage(packagePath("language-hyperlink"));
+    await lumine.packages.activatePackage(packagePath("language-todo"));
+    const editor = await lumine.workspace.open("annotations.ipy");
+    try {
+      editor.setText(
+        "# %% TODO https://example.com/title\nvalue = 1\n# %% ordinary title\nother = 2\n",
+      );
+      const mode = editor.getBuffer().getLanguageMode();
+      await mode.ready;
+      await mode.atGrammarSettlement();
+      const annotations = () =>
+        mode
+          .getAllInjectionLayers()
+          .filter((layer) => ["text.hyperlink", "text.todo"].includes(layer.grammar.scopeName));
+      expect(annotations().length).toBe(2);
+      for (const name of ["language-hyperlink", "language-todo"]) {
+        await lumine.packages.deactivatePackage(name);
+      }
+      await mode.atGrammarSettlement();
+      expect(annotations().length).toBe(0);
+      for (const name of ["language-hyperlink", "language-todo"]) {
+        await lumine.packages.activatePackage(packagePath(name));
+      }
+      await mode.atGrammarSettlement();
+      expect(annotations().length).toBe(2);
+    } finally {
+      editor.destroy();
+    }
   });
 });

@@ -34,7 +34,9 @@
     "language-javascript",
     "language-python",
     "language-shellscript",
-    "symbol-tree-sitter"
+    "symbol-tree-sitter",
+    "language-hyperlink",
+    "language-todo"
   ],
   "scripts": {
     "test": "lumine --test spec",
@@ -46,18 +48,6 @@
     "ipython.source": {
       "versions": {
         "1.0.0": "provideIPythonSource"
-      }
-    }
-  },
-  "consumedServices": {
-    "hyperlink.injection": {
-      "versions": {
-        "^1.0.0": "consumeHyperlinkInjection"
-      }
-    },
-    "todo.injection": {
-      "versions": {
-        "^1.0.0": "consumeTodoInjection"
       }
     }
   },
