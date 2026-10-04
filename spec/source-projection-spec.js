@@ -122,6 +122,30 @@ describe("IPython source projection service", () => {
     expect(projection.isPythonPosition([4, 2])).toBe(true);
   });
 
+  it("protects highlighted magic payloads and cell-header setup from analysis and formatting", async () => {
+    const source =
+      "%timeit -n 3 prs.nodes_dissup(151)\r\nresult = %timeit -o work(9)\r\n# %% Timing\r\n%%timeit -n 3 items = list(range(3))\r\nsum(items)\r\n";
+    const projection = await open(source);
+    expect(projection.source).toBe(source);
+    expect(projection.text).not.toContain("nodes_dissup");
+    expect(projection.text).not.toContain("work(9)");
+    expect(projection.text).not.toContain("list(range(3))");
+    expect(projection.text).toContain("result = eval('')");
+    expect(projection.text).toContain("sum(items)");
+    for (const position of [
+      [0, 20],
+      [1, 26],
+      [3, 25],
+    ])
+      expect(projection.isPythonPosition(position)).toBe(false);
+    expect(projection.isPythonPosition([4, 4])).toBe(true);
+    const blocks = await projection.getFormattingBlocks();
+    expect(blocks.map((block) => block.range.start.row)).toEqual([0, 4]);
+    expect(blocks[0].text).not.toContain("nodes_dissup");
+    expect(blocks[0].text).not.toContain("work(9)");
+    expect(blocks[0].restore(blocks[0].text)).toBe(editor.getTextInBufferRange(blocks[0].range));
+  });
+
   it("permits the first edit in empty Python bodies without exposing empty opaque bodies", async () => {
     await open("");
     for (const source of ["", "# %%\n", "%%time\n", "%%python3\n"]) {

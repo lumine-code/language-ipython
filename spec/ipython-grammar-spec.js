@@ -35,7 +35,7 @@ describe("IPython Tree-sitter grammar", () => {
   it("parses magics, shell escapes, and help requests without errors", async () => {
     await setUp("%matplotlib inline\n!pip install numpy\nnp.mean??\n?np.mean\n");
     expect(languageMode.rootLanguageLayer.tree.rootNode.hasError).toBe(false);
-    expect(editor.getSyntaxNodeAtBufferPosition(new Point(0, 2)).type).toBe("magic_statement");
+    expect(ancestorAt([0, 2], "magic_statement").type).toBe("magic_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(1, 2)).type).toBe("shell_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(2, 2)).type).toBe("help_statement");
     expect(editor.getSyntaxNodeAtBufferPosition(new Point(3, 2)).type).toBe("help_statement");

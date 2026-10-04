@@ -1,7 +1,9 @@
 ; Document structure and IPython syntax; Python bodies use language-python.
 
-(magic_statement) @support.function.magic.ipython
-(magic_expression) @support.function.magic.ipython
+[(magic_statement "%" @punctuation.definition.magic.ipython @support.function.magic.ipython)
+ (magic_expression "%" @punctuation.definition.magic.ipython @support.function.magic.ipython)]
+(line_magic_name) @support.function.magic.ipython
+(line_magic_arguments) @string.unquoted.arguments.ipython
 (shell_statement) @string.unquoted.shell.ipython
 (shell_expression) @string.unquoted.shell.ipython
 (help_statement) @keyword.operator.help.ipython
