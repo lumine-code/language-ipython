@@ -199,6 +199,7 @@ describe("IPython Tree-sitter grammar", () => {
     const symbols = await symbolPackage.mainModule
       .provideDocumentSymbolProvider()
       .getDocumentSymbols(editor, {
+        sourceId: "symbol-tree-sitter",
         signal: new AbortController().signal,
       });
     expect(symbols.filter((symbol) => symbol.tag === "cell").map((symbol) => symbol.name)).toEqual([
