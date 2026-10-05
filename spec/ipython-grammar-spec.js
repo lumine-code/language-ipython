@@ -196,11 +196,11 @@ describe("IPython Tree-sitter grammar", () => {
     const symbolPackage = await lumine.packages.activatePackage(
       packagePathFor("symbol-tree-sitter"),
     );
-    const symbols = await symbolPackage.mainModule.provideSymbol().getSymbols({
-      editor,
-      type: "file",
-      signal: new AbortController().signal,
-    });
+    const symbols = await symbolPackage.mainModule
+      .provideDocumentSymbolProvider()
+      .getDocumentSymbols(editor, {
+        signal: new AbortController().signal,
+      });
     expect(symbols.filter((symbol) => symbol.tag === "cell").map((symbol) => symbol.name)).toEqual([
       "Setup",
       "Details",
