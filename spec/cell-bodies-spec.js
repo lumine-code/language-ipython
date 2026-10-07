@@ -44,6 +44,36 @@ describe("IPython cell bodies", () => {
 
   afterEach(() => editor?.destroy());
 
+  it("keeps nested marker text inside template-string interpolation", async () => {
+    const source = (prefix) =>
+      `value = ${prefix}"""{f"""\n# %% [raw] Inside\n"""}\n"""\n# %% Actual\nx=1\n`;
+    await setUp(source("t"));
+    const assertBoundaries = () => {
+      expect(root().hasError).toBe(false);
+      expect(
+        root()
+          .descendantsOfType("cell_marker")
+          .map((node) => node.text),
+      ).toEqual(["# %% Actual"]);
+      expect(root().descendantsOfType("raw_cell").length).toBe(0);
+      expect(bodyLayers().length).toBe(0);
+    };
+    assertBoundaries();
+    let previous = "t";
+    for (const prefix of ["T", "rt", "tr", "rT", "tR", "RT", "TR", "f", "F", "rf", "fr"]) {
+      editor.getBuffer().setTextInRange(
+        [
+          [0, 8],
+          [0, 8 + previous.length],
+        ],
+        prefix,
+      );
+      await mode.atGrammarSettlement();
+      assertBoundaries();
+      previous = prefix;
+    }
+  });
+
   it("treats compact and flagged navigation markers as code-cell headers", async () => {
     const headers = [
       "#%%",
