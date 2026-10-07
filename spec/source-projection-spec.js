@@ -206,6 +206,19 @@ describe("IPython source projection service", () => {
     expect(blocks[0].restore(blocks[0].text)).toBe(editor.getTextInBufferRange(blocks[0].range));
   });
 
+  it("preserves row mappings and original bytes for a continued timeit Python payload", async () => {
+    const source = "%timeit -n 2 work(\\\r\n    9)\r\nafter = 1\r\n";
+    const projection = await open(source);
+    expect(projection.text.match(/\r\n/g).length).toBe(3);
+    expect(projection.text).not.toContain("work(");
+    expect(projection.text).not.toContain("9)");
+    expect(projection.isPythonPosition([1, 4])).toBe(false);
+    expect(projection.toServerPosition([2, 5])).toEqual(new Point(2, 5));
+    expect(projection.fromServerPosition([2, 5])).toEqual(new Point(2, 5));
+    const blocks = await projection.getFormattingBlocks();
+    expect(blocks[0].restore(blocks[0].text)).toBe(source);
+  });
+
   it("maps expanding Any RHS endpoints but rejects edits and requests inside it", async () => {
     const projection = await open("value = !x\r\nafter = 1\r\n");
     expect(projection.text).toBe("value = eval('')\r\nafter = 1\r\n");

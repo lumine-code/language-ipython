@@ -122,6 +122,16 @@ describe("IPython magic command highlights", () => {
     expect(scopesFor(4, "1")).toContain("constant.numeric.integer.python");
   });
 
+  it("preserves native Python scopes inside a continued timeit payload", async () => {
+    await setUp("%timeit -n 2 work(\\\r\n    9)\r\nafter = 1\r\n");
+    expect(root().hasError).toBe(false);
+    const node = root().descendantsOfType("magic_statement")[0];
+    expect(node.childForFieldName("body").text).toBe("work(\\\r\n    9)");
+    expect(scopesFor(1, "9")).toContain("constant.numeric.integer.python");
+    expect(scopesFor(1, "9")).not.toContain("string.unquoted.arguments.ipython");
+    expect(scopesFor(2, "1")).toContain("constant.numeric.integer.python");
+  });
+
   it("distinguishes the Python tails of other built-in magics", async () => {
     const expression = "obj.calculate(9) + 2";
     const configuration = "InlineBackend.figure_format = 'retina'";
