@@ -89,6 +89,39 @@ describe("IPython magic command highlights", () => {
     ]);
   });
 
+  it("highlights documentation queries as help without creating magic body injections", async () => {
+    await setUp("%%timeit?\nnp.*?\nitems[0]??\n# %% Next\nvalue = 1\n");
+    expect(root().hasError).toBe(false);
+    expect(
+      root()
+        .descendantsOfType("help_statement")
+        .map((node) => node.text),
+    ).toEqual(["%%timeit?", "np.*?", "items[0]??"]);
+    expect(root().descendantsOfType("cell_magic").length).toBe(0);
+    for (const [row, text] of [
+      [0, "timeit"],
+      [1, "np.*"],
+      [2, "items"],
+    ]) {
+      expect(scopesFor(row, text)).toContain("keyword.operator.help.ipython");
+      expect(scopesFor(row, text)).not.toContain("support.function.magic.ipython");
+    }
+    expect(scopesFor(4, "1")).toContain("constant.numeric.integer.python");
+  });
+
+  it("keeps shell continuations opaque and injects executable code after continued timeit options", async () => {
+    const join = "\\\r\n";
+    await setUp(
+      "!echo one " + join + "  two\r\n%timeit -n " + join + "  2 work(9)\r\nafter = 1\r\n",
+    );
+    expect(root().hasError).toBe(false);
+    expect(root().descendantsOfType("shell_statement")[0].text).toBe("!echo one " + join + "  two");
+    expect(scopesFor(1, "two")).toContain("string.unquoted.shell.ipython");
+    expect(scopesFor(1, "two")).not.toContain("source.python");
+    await expectNativePython(3, "work(9)", ["work", "9"]);
+    expect(scopesFor(4, "1")).toContain("constant.numeric.integer.python");
+  });
+
   it("distinguishes the Python tails of other built-in magics", async () => {
     const expression = "obj.calculate(9) + 2";
     const configuration = "InlineBackend.figure_format = 'retina'";

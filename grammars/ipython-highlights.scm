@@ -2,7 +2,8 @@
 
 [(magic_statement "%" @punctuation.definition.magic.ipython @support.function.magic.ipython)
  (magic_expression "%" @punctuation.definition.magic.ipython @support.function.magic.ipython)]
-(line_magic_name) @support.function.magic.ipython
+[(magic_statement name: (line_magic_name) @support.function.magic.ipython)
+ (magic_expression name: (line_magic_name) @support.function.magic.ipython)]
 (line_magic_arguments) @string.unquoted.arguments.ipython
 (shell_statement) @string.unquoted.shell.ipython
 (shell_expression) @string.unquoted.shell.ipython

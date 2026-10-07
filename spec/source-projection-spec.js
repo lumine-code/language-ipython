@@ -164,6 +164,48 @@ describe("IPython source projection service", () => {
     }
   });
 
+  it("masks complete continued commands while preserving physical row mappings and formatter restoration", async () => {
+    const join = "\\\r\n";
+    const source =
+      "!echo one " +
+      join +
+      "  two\r\n" +
+      "%timeit -n " +
+      join +
+      "  2 work(9)\r\n" +
+      "value = !" +
+      join +
+      "  echo result\r\n" +
+      "after = 1\r\n";
+    const projection = await open(source);
+    expect(projection.text.match(/\r\n/g).length).toBe(7);
+    expect(projection.text).not.toContain("two");
+    expect(projection.text).not.toContain("work(9)");
+    expect(projection.text).not.toContain("echo result");
+    expect(projection.text).toContain("value = eval('')");
+    expect(projection.text).toContain("after = 1\r\n");
+    for (const row of [1, 3, 5]) expect(projection.isPythonPosition([row, 3])).toBe(false);
+    expect(projection.toServerPosition([6, 5])).toEqual(new Point(6, 5));
+    expect(projection.fromServerPosition([6, 5])).toEqual(new Point(6, 5));
+    const blocks = await projection.getFormattingBlocks();
+    expect(blocks.length).toBe(1);
+    expect(blocks[0].text).not.toContain("two");
+    expect(blocks[0].restore(blocks[0].text)).toBe(source);
+  });
+
+  it("protects magic documentation, wildcard searches and integer-subscript help", async () => {
+    const source = "%%timeit?\nnp.*?\nitems[-1]??\n# %% Next\nvalue = 1\n";
+    const projection = await open(source);
+    expect(projection.text).not.toContain("timeit");
+    expect(projection.text).not.toContain("np.*");
+    expect(projection.text).not.toContain("items[-1]");
+    expect(projection.text).toContain("value = 1\n");
+    expect(projection.isPythonPosition([2, 2])).toBe(false);
+    expect(projection.isPythonPosition([4, 2])).toBe(true);
+    const blocks = await projection.getFormattingBlocks();
+    expect(blocks[0].restore(blocks[0].text)).toBe(editor.getTextInBufferRange(blocks[0].range));
+  });
+
   it("maps expanding Any RHS endpoints but rejects edits and requests inside it", async () => {
     const projection = await open("value = !x\r\nafter = 1\r\n");
     expect(projection.text).toBe("value = eval('')\r\nafter = 1\r\n");
