@@ -18,6 +18,7 @@
     "parserSource": "github:lumine-code/tree-sitter-ipython#23fcdb2416154f6f2b5c782d41d4bc81a68bacd6",
     "wasmBuildTool": "tree-sitter-cli#v0.27.0",
     "grammar": "ipython.wasm",
+    "parseBoundariesQuery": "ipython-parse-boundaries.scm",
     "highlightsQuery": "ipython-highlights.scm",
     "tagsQuery": "ipython-tags.scm",
     "foldsQuery": "ipython-folds.scm",

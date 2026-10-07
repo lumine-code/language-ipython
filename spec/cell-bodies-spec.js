@@ -214,6 +214,75 @@ describe("IPython cell bodies", () => {
     expect(root().namedChildren.at(-1).type).toBe("code_cell");
   });
 
+  it("aligns large opaque edits without splitting injection or projection ownership", async () => {
+    jasmine.useRealClock();
+    for (const [kind, row] of [
+      ["raw", "# x\n"],
+      ["markdown", "# Notes\n"],
+    ]) {
+      editor?.destroy();
+      const header = `# %% [${kind}]\n`;
+      const bodyPrefix = kind === "markdown" ? "```\n" : "";
+      const bodySuffix = kind === "markdown" ? "```\n" : "";
+      const bodyText = bodyPrefix + row.repeat(Math.ceil(1048576 / row.length)) + bodySuffix;
+      await setUp(header + bodyText + "# %% Next\nafter = 1\n");
+      const layer = mode.rootLanguageLayer;
+      expect(layer.queries.parseBoundariesQuery).toBeDefined();
+      const parser = mode.getOrCreateParserForLanguage(layer.language);
+      let lexed = 0;
+      parser.setLogger((message) => {
+        if (message.startsWith("lexed_lookahead")) lexed++;
+      });
+      const calls = [];
+      const original = mode.parseAsync.bind(mode);
+      const spy = spyOn(mode, "parseAsync").and.callFake((language, oldTree, ranges, options) => {
+        if (language === layer.language && oldTree) calls.push(ranges);
+        return original(language, oldTree, ranges, options);
+      });
+      try {
+        const editRow = kind === "markdown" ? 2 : 1;
+        editor.setTextInBufferRange(
+          [
+            [editRow, row.length - 1],
+            [editRow, row.length - 1],
+          ],
+          "\n",
+        );
+        await editor.whenGrammarSettled();
+      } finally {
+        parser.setLogger(null);
+        spy.and.callThrough();
+      }
+      expect(lexed).toBeLessThan(24);
+      expect(calls.length).toBeGreaterThan(0);
+      const hints = calls.at(-1);
+      expect(hints.length).toBeGreaterThan(200);
+      for (let index = 1; index < hints.length; index++)
+        expect(hints[index - 1].endIndex).toBe(hints[index].startIndex);
+      expect(root().hasError).toBe(false);
+      const body = root().namedChild(0).childForFieldName("body");
+      const insertionIndex = bodyPrefix.length + row.length - 1;
+      expect(body.text).toBe(
+        bodyText.slice(0, insertionIndex) + "\n" + bodyText.slice(insertionIndex),
+      );
+      if (kind === "markdown") {
+        expect(bodyLayers().length).toBe(1);
+        expect(bodyLayers()[0].tree.getIncludedRanges().length).toBe(1);
+        expect(scopesAt(3, 0)).toContain("source.gfm");
+      } else expect(bodyLayers().length).toBe(0);
+      const projection = await lumine.packages
+        .getActivePackage("language-ipython")
+        .mainModule.provideIPythonSource()
+        .project(editor);
+      expect(projection.isPythonPosition([3, 0])).toBe(false);
+      const blocks = await projection.getFormattingBlocks();
+      expect(blocks.length).toBe(1);
+      expect(blocks[0].text).toBe("after = 1\n");
+      expect(blocks[0].restore(blocks[0].text)).toBe("after = 1\n");
+      spy.and.callThrough();
+    }
+  });
+
   it("keeps trailing header whitespace out of literal and magic bodies", async () => {
     await setUp("# %% [raw] \t \r\npayload\r\n# %%\r\n%%html \t \r\n<h1>Heading</h1>\r\n");
     expect(root().hasError).toBe(false);
