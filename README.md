@@ -12,6 +12,8 @@ IPython language support.
 - **Python integration**: inherits Python settings and snippets without maintaining copies.
 - **Folding and symbols**: uses native Python queries for structural editing and exposes named cells alongside Python definitions.
 
+![IPython syntax highlighting at the default editor font size.](.github/demo.png)
+
 ## Installation
 
 To install `language-ipython` search for it in the Install pane of the Lumine settings, or run the command `lumine --install lumine-code/language-ipython`.

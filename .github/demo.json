@@ -1,0 +1,16 @@
+{
+  "title": "language-ipython",
+  "description": "IPython syntax highlighting in the editor.",
+  "recordedOn": "2026-10-13",
+  "sourceRevision": "8f6d18cc41876bee4ef2eaea4c5a713d74ac2e5a",
+  "mode": "normal",
+  "fontSettings": "default",
+  "images": [
+    {
+      "file": "demo.png",
+      "label": "IPython syntax highlighting at the default editor font size.",
+      "width": 1100,
+      "height": 820
+    }
+  ]
+}
