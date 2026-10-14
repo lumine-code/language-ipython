@@ -1,16 +1,61 @@
 {
   "title": "language-ipython",
-  "description": "IPython syntax highlighting in the editor.",
-  "recordedOn": "2026-10-13",
-  "sourceRevision": "8f6d18cc41876bee4ef2eaea4c5a713d74ac2e5a",
+  "description": "IPython syntax highlighting at the default editor font size.",
+  "recordedOn": "2026-10-14",
+  "sourceRevision": "cf91ce0211b69caf4b5eab38ff2837fa43f005f9",
+  "themeSourceRevision": "14a69683b0e3238e2bc128fbfae3866c1e4ee9c6",
   "mode": "normal",
   "fontSettings": "default",
+  "scenario": "demo.js",
+  "recipeHash": "d000ac862e1c1dcdb30c654aafa010a3450df48ff920441dd28db38616f77c40",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "electron": "44.7.0",
+    "chrome": "152.0.7977.130",
+    "devicePixelRatio": 1,
+    "locale": "en-GB",
+    "fontFamily": "Fira Code, Menlo, DejaVu Sans Mono, Consolas, monospace",
+    "fontSize": 14,
+    "themes": ["one-day-syntax", "one-day-ui"]
+  },
+  "viewport": { "width": 1100, "height": 820 },
+  "cornerRadius": 10,
+  "sources": {
+    "editor": {
+      "revision": "c4d7a05fe6960ae6fb041981d6cf13e9c0286b17",
+      "dirty": true,
+      "workingTreeHash": "af0ec098e764416df9522f3c6e555050b520e4700da382b2b983b2ff3742bd0a"
+    },
+    "package": {
+      "revision": "cf91ce0211b69caf4b5eab38ff2837fa43f005f9",
+      "dirty": true,
+      "workingTreeHash": "24e09c7f8521267cdd485fa966b8804d7a3760ca04c1661e78eb4174e4d28d66"
+    },
+    "language-ipython": {
+      "revision": "cf91ce0211b69caf4b5eab38ff2837fa43f005f9",
+      "dirty": true,
+      "workingTreeHash": "24e09c7f8521267cdd485fa966b8804d7a3760ca04c1661e78eb4174e4d28d66"
+    },
+    "one-theme": {
+      "revision": "14a69683b0e3238e2bc128fbfae3866c1e4ee9c6",
+      "dirty": true,
+      "workingTreeHash": "50ec2f83a6347dd8113870992ec4eb2be4014f3d9e12213c2f51b543f1eca793"
+    }
+  },
+  "fixtures": [
+    {
+      "file": "example.ipy",
+      "sha256": "3cfab05bdc5ee31b687d2d664d98b1649265a1e8ab2a5e28b992de3ba29b4d68"
+    }
+  ],
   "images": [
     {
       "file": "demo.png",
       "label": "IPython syntax highlighting at the default editor font size.",
       "width": 1100,
-      "height": 820
+      "height": 820,
+      "sha256": "68ad1587664ec5f1c54f665add7fb904eadbf5738a0c2409bc81b50777a7f509"
     }
   ]
 }
