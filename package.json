@@ -7,7 +7,8 @@
     "docs",
     "grammars",
     "lib",
-    "spec"
+    "spec",
+    "THIRD_PARTY_NOTICES"
   ],
   "description": "IPython language support.",
   "keywords": [
