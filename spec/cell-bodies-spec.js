@@ -264,8 +264,9 @@ describe("IPython cell bodies", () => {
         if (message.startsWith("lexed_lookahead")) lexed++;
       });
       const calls = [];
-      const original = mode.parseAsync.bind(mode);
-      const spy = spyOn(mode, "parseAsync").and.callFake((language, oldTree, ranges, options) => {
+      const method = mode.shouldParseSynchronously?.() ? "parse" : "parseAsync";
+      const original = mode[method].bind(mode);
+      const spy = spyOn(mode, method).and.callFake((language, oldTree, ranges, options) => {
         if (language === layer.language && oldTree) calls.push(ranges);
         return original(language, oldTree, ranges, options);
       });

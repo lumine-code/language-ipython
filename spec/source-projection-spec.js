@@ -533,8 +533,27 @@ describe("IPython source projection service", () => {
   it("retries when the source changes during cooperative masking", async () => {
     await open("# %% [raw]\n" + "x".repeat(32768) + "\n# %%\nlast = 1\n");
     editor.setText("# %% [raw]\n" + "y".repeat(32768) + "\n# %%\nlast = 2\n");
+    const build = service.buildSnapshot.bind(service);
+    let entered, release;
+    const started = new Promise((resolve) => {
+      entered = resolve;
+    });
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    let delay = true;
+    spyOn(service, "buildSnapshot").and.callFake(async (...args) => {
+      if (delay) {
+        delay = false;
+        entered();
+        await gate;
+      }
+      return build(...args);
+    });
     const pending = service.project(editor);
-    setImmediate(() => editor.setText("# %% [raw]\nchanged\n# %%\nlast = 3\n"));
+    await started;
+    editor.setText("# %% [raw]\nchanged\n# %%\nlast = 3\n");
+    release();
     const projection = await pending;
     expect(projection.source).toBe(editor.getText());
     expect(projection.text).toContain("last = 3");

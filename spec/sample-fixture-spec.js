@@ -61,7 +61,7 @@ describe("IPython sample fixture", () => {
         const layers = mode.getAllInjectionLayers();
         injected = layers.find((layer) => layer.grammar.scopeName === "source.python");
         if (
-          mode.tree &&
+          mode.rootLanguageLayer?.tree &&
           injected &&
           !injected.tree &&
           layers.some((layer) => layer.grammar.scopeName === "source.gfm" && layer.tree)
@@ -69,7 +69,7 @@ describe("IPython sample fixture", () => {
           break;
         await new Promise((resolve) => setTimeout(resolve, 1));
       }
-      expect(mode.tree).toBeTruthy();
+      expect(mode.rootLanguageLayer.tree).toBeTruthy();
       expect(injected).toBeTruthy();
       expect(injected.tree).toBeFalsy();
       expect(
