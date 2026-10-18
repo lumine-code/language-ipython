@@ -47,6 +47,32 @@ describe("IPython source projection service", () => {
     expect(projection.isCurrent()).toBe(true);
   });
 
+  it("projects with GC-owned cursors that have no explicit delete method", async () => {
+    await open("value = 1\n");
+    editor.setText("%pwd\r\nvalue = 1\r\n");
+    await editor.whenGrammarSettled();
+    const tree = editor.getBuffer().getLanguageMode().rootLanguageLayer.tree;
+    const walk = tree.walk.bind(tree);
+    const releases = [];
+    spyOn(tree, "walk").and.callFake(() => {
+      const cursor = walk();
+      if (cursor.delete) releases.push(cursor.delete.bind(cursor));
+      Object.defineProperty(cursor, "delete", { value: undefined });
+      return cursor;
+    });
+    try {
+      service.stateFor(editor.getBuffer()).cached = null;
+      const projection = await service.project(editor);
+      expect(tree.walk).toHaveBeenCalled();
+      expect(projection.source).toBe("%pwd\r\nvalue = 1\r\n");
+      expect(projection.text).not.toContain("%pwd");
+      expect(projection.text).toContain("value = 1");
+      expect(projection.isCurrent()).toBe(true);
+    } finally {
+      for (const release of releases) release();
+    }
+  });
+
   it("is passive for ordinary Python and notebook fragment roles", async () => {
     expect(await open("number = 1\n", "source.python")).toBe(null);
     lumine.grammars.assignLanguageMode(editor.getBuffer(), "source.python.ipy");
