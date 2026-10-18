@@ -264,11 +264,12 @@ describe("IPython cell bodies", () => {
         if (message.startsWith("lexed_lookahead")) lexed++;
       });
       const calls = [];
-      const method = mode.shouldParseSynchronously?.() ? "parse" : "parseAsync";
-      const original = mode[method].bind(mode);
-      const spy = spyOn(mode, method).and.callFake((language, oldTree, ranges, options) => {
-        if (language === layer.language && oldTree) calls.push(ranges);
-        return original(language, oldTree, ranges, options);
+      const spies = ["parse", "parseAsync"].map((method) => {
+        const original = mode[method].bind(mode);
+        return spyOn(mode, method).and.callFake((language, oldTree, ranges, options) => {
+          if (language === layer.language && oldTree) calls.push(ranges);
+          return original(language, oldTree, ranges, options);
+        });
       });
       try {
         const editRow = kind === "markdown" ? 2 : 1;
@@ -282,7 +283,7 @@ describe("IPython cell bodies", () => {
         await editor.whenGrammarSettled();
       } finally {
         parser.setLogger(null);
-        spy.and.callThrough();
+        for (const spy of spies) spy.and.callThrough();
       }
       expect(lexed).toBeLessThan(24);
       expect(calls.length).toBeGreaterThan(0);
@@ -310,7 +311,6 @@ describe("IPython cell bodies", () => {
       expect(blocks.length).toBe(1);
       expect(blocks[0].text).toBe("after = 1\n");
       expect(blocks[0].restore(blocks[0].text)).toBe("after = 1\n");
-      spy.and.callThrough();
     }
   });
 
