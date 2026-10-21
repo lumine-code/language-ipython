@@ -31,15 +31,15 @@ describe("IPython source projection service", () => {
 
   it("uses a linear cursor for a large body of commands without indexed child lookups", async () => {
     await open("# %% Commands\n" + "%pwd\n".repeat(10000));
-    const tree = editor.getBuffer().getLanguageMode().rootLanguageLayer.tree;
-    const body = tree.rootNode.namedChild(0).childForFieldName("body");
-    const prototype = Object.getPrototypeOf(body),
-      namedChild = prototype.namedChild;
-    spyOn(prototype, "namedChild").and.callFake(function (...args) {
-      if (this.type === "python_cell_body" && this.namedChildCount > 64)
-        throw new Error("Large command bodies must use a cursor.");
-      return namedChild.apply(this, args);
-    });
+    const proof = await editor.analyzeSyntax(
+      require.resolve("./helpers/projection-inspection"),
+      "collect",
+      {},
+    );
+    expect(proof.walks).toBe(1);
+    expect(proof.deletes).toBe(1);
+    expect(proof.steps).toBeLessThan(editor.getText().length * 8);
+    expect(proof.counts.sentinels).toBe(10000);
     service.stateFor(editor.getBuffer()).cached = null;
     const projection = await service.project(editor);
     expect(projection.text).not.toContain("%pwd");
@@ -51,26 +51,19 @@ describe("IPython source projection service", () => {
     await open("value = 1\n");
     editor.setText("%pwd\r\nvalue = 1\r\n");
     await editor.whenGrammarSettled();
-    const tree = editor.getBuffer().getLanguageMode().rootLanguageLayer.tree;
-    const walk = tree.walk.bind(tree);
-    const releases = [];
-    spyOn(tree, "walk").and.callFake(() => {
-      const cursor = walk();
-      if (cursor.delete) releases.push(cursor.delete.bind(cursor));
-      Object.defineProperty(cursor, "delete", { value: undefined });
-      return cursor;
-    });
-    try {
-      service.stateFor(editor.getBuffer()).cached = null;
-      const projection = await service.project(editor);
-      expect(tree.walk).toHaveBeenCalled();
-      expect(projection.source).toBe("%pwd\r\nvalue = 1\r\n");
-      expect(projection.text).not.toContain("%pwd");
-      expect(projection.text).toContain("value = 1");
-      expect(projection.isCurrent()).toBe(true);
-    } finally {
-      for (const release of releases) release();
-    }
+    const proof = await editor.analyzeSyntax(
+      require.resolve("./helpers/projection-inspection"),
+      "collect",
+      { gcOwned: true },
+    );
+    expect(proof.walks).toBe(1);
+    expect(proof.deletes).toBe(0);
+    service.stateFor(editor.getBuffer()).cached = null;
+    const projection = await service.project(editor);
+    expect(projection.source).toBe("%pwd\r\nvalue = 1\r\n");
+    expect(projection.text).not.toContain("%pwd");
+    expect(projection.text).toContain("value = 1");
+    expect(projection.isCurrent()).toBe(true);
   });
 
   it("is passive for ordinary Python and notebook fragment roles", async () => {
@@ -332,16 +325,21 @@ describe("IPython source projection service", () => {
     const builds = spyOn(service, "buildSnapshot").and.callThrough();
     await open("value = 1\n%pwd\n");
     const mode = editor.getBuffer().getLanguageMode();
-    const creates = spyOn(mode, "createParserForLanguage").and.callThrough();
+    const creates = mode.createParserForLanguage
+      ? spyOn(mode, "createParserForLanguage").and.callThrough()
+      : null;
+    const queries = spyOn(editor.getBuffer(), "analyzeSyntax").and.callThrough();
     const [first, second] = await Promise.all([service.project(editor), service.project(editor)]);
     expect(first).toBe(second);
     expect(builds.calls.count()).toBe(1);
-    expect(creates).not.toHaveBeenCalled();
+    if (creates) expect(creates).not.toHaveBeenCalled();
+    expect(queries).not.toHaveBeenCalled();
     editor.setText("value = 2\n%pwd\n");
     expect(first.isCurrent()).toBe(false);
     expect(first.mapEdits([])).toBe(null);
     const latest = await service.project(editor);
     expect(builds.calls.count()).toBe(2);
+    expect(queries).toHaveBeenCalledTimes(1);
     expect(latest.source).toBe(editor.getText());
     expect(latest.isCurrent()).toBe(true);
   });
@@ -350,14 +348,15 @@ describe("IPython source projection service", () => {
     await open(
       "import os\n# %% [markdown]\nsecret = 'Markdown only'\n# %% Timing\n%%time\nvalue = !x\n# %% Result\nresult = os.getcwd()\n",
     );
-    const mode = editor.getBuffer().getLanguageMode();
-    const pythonLayers = mode.getAllLanguageLayers(
-      (layer) => layer.grammar.scopeName === "source.python",
+    const proof = await editor.analyzeSyntax(
+      require.resolve("./helpers/projection-inspection"),
+      "collect",
+      {},
     );
-    expect(pythonLayers.length).toBe(1);
-    const walks = pythonLayers.map((layer) => spyOn(layer.tree, "walk").and.callThrough());
-    const rootWalk = spyOn(mode.rootLanguageLayer.tree, "walk").and.callThrough();
-    const creates = spyOn(mode, "createParserForLanguage").and.callThrough();
+    expect(proof.pythonLayers).toBe(1);
+    expect(proof.walks).toBe(1);
+    expect(proof.deletes).toBe(1);
+    const queries = spyOn(editor.getBuffer(), "analyzeSyntax").and.callThrough();
     // Use the current service generation, without its already prepared cache.
     const isolated = new service.constructor();
     try {
@@ -367,9 +366,7 @@ describe("IPython source projection service", () => {
       expect(projection.text).toContain("result = os.getcwd()\n");
       expect(projection.text).not.toContain("Markdown only");
       expect(projection.text).not.toContain("%%time");
-      expect(rootWalk.calls.count()).toBe(1);
-      for (const walk of walks) expect(walk).not.toHaveBeenCalled();
-      expect(creates).not.toHaveBeenCalled();
+      expect(queries).toHaveBeenCalledTimes(1);
     } finally {
       isolated.dispose();
     }
