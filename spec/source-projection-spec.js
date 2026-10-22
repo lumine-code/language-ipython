@@ -337,6 +337,7 @@ describe("IPython source projection service", () => {
     editor.setText("value = 2\n%pwd\n");
     expect(first.isCurrent()).toBe(false);
     expect(first.mapEdits([])).toBe(null);
+    await editor.whenGrammarSettled();
     const latest = await service.project(editor);
     expect(builds.calls.count()).toBe(2);
     expect(queries).toHaveBeenCalledTimes(1);
@@ -566,6 +567,42 @@ describe("IPython source projection service", () => {
     controller.abort();
     await expectAsync(cancelled).toBeRejected();
     expect((await shared).isCurrent()).toBe(true);
+  });
+
+  it("retries shared work when settled syntax changes without another text revision", async () => {
+    await open("# %% [raw]\nopaque\n# %%\nlast = 1\n");
+    editor.setText("# %% [raw]\nchanged\n# %%\nlast = 2\n");
+    await editor.whenGrammarSettled();
+    const buffer = editor.getBuffer();
+    const revision = buffer.getTextRevision();
+    const reads = spyOn(buffer, "getText").and.callThrough();
+    let token = Object.freeze({});
+    spyOn(buffer, "getSyntaxSnapshotToken").and.callFake(() => token);
+    const build = service.buildSnapshot.bind(service);
+    let invalidated = false;
+    const builds = spyOn(service, "buildSnapshot").and.callFake((...args) => {
+      if (!invalidated) {
+        invalidated = true;
+        // A worker can publish new syntax at the same document revision.
+        token = Object.freeze({});
+      }
+      return build(...args);
+    });
+
+    const controller = new AbortController();
+    const cancelled = service.project(editor, { signal: controller.signal });
+    const firstPending = service.project(editor);
+    const secondPending = service.project(editor);
+    controller.abort();
+    await expectAsync(cancelled).toBeRejected();
+    const [first, second] = await Promise.all([firstPending, secondPending]);
+
+    expect(first).toBe(second);
+    expect(first.isCurrent()).toBe(true);
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(first.source).toBe(editor.getText());
+    expect(buffer.getTextRevision()).toBe(revision);
+    expect(builds).toHaveBeenCalledTimes(2);
   });
 
   it("invalidates snapshots and releases cache subscriptions on package deactivation", async () => {
