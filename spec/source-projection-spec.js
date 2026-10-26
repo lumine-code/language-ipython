@@ -75,6 +75,72 @@ describe("IPython source projection service", () => {
     expect(await service.project(editor)).toBe(null);
   });
 
+  it("does not read a None document and releases cached projections until grammar restoration", async () => {
+    const previous = await open("value = 1\n");
+    const buffer = editor.getBuffer();
+    const state = service.stateFor(buffer);
+    expect(state.cached).toBe(previous);
+    lumine.grammars.assignLanguageMode(buffer, lumine.grammars.nullGrammar.scopeName);
+    expect(state.cached).toBe(null);
+    expect(state.source).toBe(null);
+    const read = spyOn(buffer, "getText").and.callThrough();
+    expect(await service.project(editor)).toBe(null);
+    expect(read).not.toHaveBeenCalled();
+    buffer.setText("value = 2\n");
+    lumine.grammars.assignLanguageMode(buffer, "source.python.ipy");
+    const restored = await service.project(editor);
+    expect(restored.source).toBe("value = 2\n");
+    expect(restored.isCurrent()).toBe(true);
+    expect(previous.isCurrent()).toBe(false);
+  });
+
+  for (const restoreImmediately of [false, true]) {
+    it(`retires an unresolved projection on None${restoreImmediately ? " and resumes before it finishes" : ""}`, async () => {
+      await open("value = 1\n");
+      editor.setText("value = 2\n");
+      const buffer = editor.getBuffer();
+      const build = service.buildSnapshot.bind(service);
+      let release, entered, timer;
+      const gate = new Promise((resolve) => (release = resolve));
+      const started = new Promise((resolve) => (entered = resolve));
+      let held = false;
+      spyOn(service, "buildSnapshot").and.callFake(async (...args) => {
+        if (!held) {
+          held = true;
+          entered();
+          await gate;
+        }
+        return build(...args);
+      });
+      const pending = service.project(editor);
+      try {
+        await started;
+        lumine.grammars.assignLanguageMode(buffer, lumine.grammars.nullGrammar.scopeName);
+        expect(service.stateFor(buffer).source).toBe(null);
+        if (restoreImmediately) {
+          buffer.setText("value = 3\n");
+          lumine.grammars.assignLanguageMode(buffer, "source.python.ipy");
+        }
+        const result = await Promise.race([
+          pending,
+          new Promise((resolve) => (timer = setTimeout(() => resolve("still waiting"), 100))),
+        ]);
+        if (restoreImmediately) {
+          expect(result).not.toBe("still waiting");
+          if (result !== "still waiting") {
+            expect(result.source).toBe("value = 3\n");
+            expect(result.isCurrent()).toBe(true);
+            expect(await service.project(editor)).toBe(result);
+          }
+        } else expect(result).toBe(null);
+      } finally {
+        clearTimeout(timer);
+        release();
+        await pending;
+      }
+    });
+  }
+
   it("keeps ordinary Python, strings and comments byte-for-byte", async () => {
     const source = "text = '%%html 😀'\r\n# %pwd !shell\r\nvalue = 1\r\n";
     const projection = await open(source);
