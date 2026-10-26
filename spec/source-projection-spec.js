@@ -94,6 +94,27 @@ describe("IPython source projection service", () => {
     expect(previous.isCurrent()).toBe(false);
   });
 
+  it("declines unavailable syntax before reading source and resumes a required projection", async () => {
+    await open("value = 1\n");
+    editor.setText("value = 2\n");
+    const availability = jasmine.createSpy("syntax availability").and.returnValue({
+      available: false,
+      reason: "failure",
+    });
+    Object.defineProperty(editor, "getSyntaxAvailability", {
+      configurable: true,
+      value: availability,
+    });
+    const read = spyOn(editor.getBuffer(), "getText").and.callThrough();
+    expect(service.isApplicable(editor)).toBe(true);
+    expect(await service.project(editor)).toBe(null);
+    expect(read).not.toHaveBeenCalled();
+    availability.and.returnValue({ available: true });
+    const projection = await service.project(editor);
+    expect(projection.source).toBe("value = 2\n");
+    expect(projection.isCurrent()).toBe(true);
+  });
+
   for (const restoreImmediately of [false, true]) {
     it(`retires an unresolved projection on None${restoreImmediately ? " and resumes before it finishes" : ""}`, async () => {
       await open("value = 1\n");
