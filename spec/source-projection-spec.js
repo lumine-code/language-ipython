@@ -115,6 +115,35 @@ describe("IPython source projection service", () => {
     expect(projection.isCurrent()).toBe(true);
   });
 
+  it("stops retrying when syntax becomes unavailable during a pending projection", async () => {
+    await open("value = 1\n");
+    editor.setText("value = 2\n");
+    let available = true,
+      release,
+      entered;
+    spyOn(editor, "getSyntaxAvailability").and.callFake(() => ({ available }));
+    const ready = new Promise((resolve) => {
+      entered = resolve;
+    });
+    const build = service.buildSnapshot.bind(service);
+    spyOn(service, "buildSnapshot").and.callFake((...args) => {
+      const snapshot = build(...args);
+      entered();
+      return new Promise((resolve) => {
+        release = () => resolve(snapshot);
+      });
+    });
+    const read = spyOn(editor.getBuffer(), "getText").and.callThrough();
+    const pending = service.project(editor);
+    await ready;
+    available = false;
+    release();
+    expect(await pending).toBeNull();
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(service.stateFor(editor.getBuffer()).source).toBeNull();
+    expect(service.buildSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   for (const restoreImmediately of [false, true]) {
     it(`retires an unresolved projection on None${restoreImmediately ? " and resumes before it finishes" : ""}`, async () => {
       await open("value = 1\n");
