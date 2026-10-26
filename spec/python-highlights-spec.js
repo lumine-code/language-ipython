@@ -8,6 +8,20 @@ const CTYPES_FIXTURE_ROWS = 12462;
 const CTYPES_FIXTURE_COMMENT_ROWS = 9163;
 const CTYPES_FIELDS_PER_CLASS = 96;
 
+function expectRawCaptureBudget(captures, scopeLimit, stringCount) {
+  const prefixes = captures.filter(({ name }) => name === "_IGNORE_.stringStart");
+  // Native classification now inspects one tiny opening token per string.
+  // Account for that exact cost while retaining the previous scope limits.
+  expect(prefixes.length).toBe(stringCount);
+  expect(new Set(prefixes.map(({ node }) => node.id)).size).toBe(stringCount);
+  expect(
+    prefixes.every(
+      ({ node }) => node.type === "string_start" && node.endIndex - node.startIndex === 1,
+    ),
+  ).toBe(true);
+  expect(captures.length - prefixes.length).toBeLessThanOrEqual(scopeLimit);
+}
+
 function buildCtypesFixture() {
   const lines = ["from ctypes import Structure, c_int"];
   let fieldIndex = 0;
@@ -273,9 +287,9 @@ def __len__(self):
     // that diagnostic count larger, but keep tile cost independent of a
     // collection that began thousands of rows before the viewport.
     expect(fullCaptures.length).toBeGreaterThan(CTYPES_FIXTURE_ROWS);
-    expect(fullCaptures.length).toBeLessThanOrEqual(220000);
-    expect(viewportCaptures.length).toBeLessThanOrEqual(1650);
-    expect(tileCaptures.length).toBeLessThanOrEqual(140);
+    expectRawCaptureBudget(fullCaptures, 220000, CTYPES_FIXTURE_COMMENT_ROWS);
+    expectRawCaptureBudget(viewportCaptures, 1650, 73);
+    expectRawCaptureBudget(tileCaptures, 140, 6);
   });
 
   it("keeps tile query work bounded inside a large dictionary parent", async () => {
@@ -284,7 +298,7 @@ def __len__(self):
     lines.push("}");
     await setUp(lines.join("\r\n"));
 
-    expect((await rawCaptures(3000, 3006)).length).toBeLessThanOrEqual(64);
+    expectRawCaptureBudget(await rawCaptures(3000, 3006), 64, 6);
   });
 
   it("keeps escapes local inside a large triple-quoted string", async () => {
