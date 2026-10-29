@@ -258,6 +258,10 @@ describe("IPython cell bodies", () => {
       await setUp(header + bodyText + "# %% Next\nafter = 1\n");
       const layer = mode.rootLanguageLayer;
       expect(layer.queries.parseBoundariesQuery).toBeDefined();
+      // Measure scanner reuse independently of the production query deadline:
+      // a loaded CI host may legitimately fall back after its shared 25 ms.
+      const queryBudget = mode.queryBudget;
+      mode.queryBudget = { ...queryBudget, now: () => 0 };
       const parser = mode.getOrCreateParserForLanguage(layer.language);
       let lexed = 0;
       parser.setLogger((message) => {
@@ -282,9 +286,11 @@ describe("IPython cell bodies", () => {
         );
         await editor.whenGrammarSettled();
       } finally {
+        mode.queryBudget = queryBudget;
         parser.setLogger(null);
         for (const spy of spies) spy.and.callThrough();
       }
+      expect(layer.parseBoundaryLimitedReason).toBeNull();
       expect(lexed).toBeLessThan(24);
       expect(calls.length).toBeGreaterThan(0);
       const hints = calls.at(-1);
