@@ -20,9 +20,20 @@ describe("language-ipython package", () => {
     expect(grammar.constructor.name).toBe("TreeSitterGrammar");
   });
 
-  it("does not duplicate Python settings or snippets", () => {
-    expect(fs.existsSync(path.join(packageRoot, "settings"))).toBe(false);
+  it("inherits Python style overrides and does not duplicate snippets", async () => {
     expect(fs.existsSync(path.join(packageRoot, "snippets"))).toBe(false);
+    const options = { scopeSelector: ".source.python" };
+    const editor = await lumine.workspace.open("analysis.ipy");
+    try {
+      await editor.whenGrammarSettled();
+      lumine.config.set("editor.tabLength", 7, options);
+      expect(
+        lumine.config.get("editor.tabLength", { scope: editor.getRootScopeDescriptor() }),
+      ).toBe(7);
+    } finally {
+      lumine.config.unset("editor.tabLength", options);
+      editor.destroy();
+    }
   });
 
   it("inherits scoped Python settings", async () => {

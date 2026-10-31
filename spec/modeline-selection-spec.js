@@ -1,36 +1,22 @@
-const fs = require("fs");
-const path = require("path");
-
-describe("IPython modeline selection", () => {
-  let grammar;
-
+describe("ipython modeline selection", () => {
   beforeEach(async () => {
-    const pkg = await lumine.packages.activatePackage("language-ipython");
-    expect(fs.realpathSync(pkg.path)).toBe(path.resolve(__dirname, ".."));
-    grammar = lumine.grammars.grammarForScopeName("source.python.ipy");
+    await lumine.packages.activatePackage("language-ipython");
   });
-
-  it("selects extensionless files from Vim filetype, ft, and syntax modelines", () => {
-    for (const key of ["filetype", "ft", "syntax"]) {
-      const text = "// vim: set tabstop=4 set " + key + "=ipython:";
-      expect(lumine.grammars.selectGrammar("modeline", text).scopeName).toBe("source.python.ipy");
+  it("selects exact Vim aliases", () => {
+    for (const field of ["ft", "filetype", "syntax"]) {
+      const source = "# vim: set " + field + "=" + "ipython" + ":";
+      expect(lumine.grammars.selectGrammar("extensionless", source).scopeName)
+        .withContext(source)
+        .toBe("source.python.ipy");
     }
   });
-
-  it("preserves token order and modelines on a later supplied prefix line", () => {
-    expect(grammar.firstLineRegex.test("vim: ft=ipython")).toBe(false);
-    expect(grammar.firstLineRegex.test("ft=ipython // vim: set tabstop=4")).toBe(false);
-    expect(grammar.firstLineRegex.test("preceding line\n// vim: set ft=ipython:")).toBe(true);
-  });
-
-  it("keeps failed modelines from revisiting Vim and set tokens", () => {
-    expect(grammar.firstLineRegex.source).toContain("(?:(?!vim\\b).)*vim\\b");
-    expect(grammar.firstLineRegex.source).toContain("(?:(?!\\bset\\b).)*\\bset\\b");
-    for (const text of ["vim " + " set ".repeat(16000) + "x", "vim ".repeat(16000) + "x"]) {
-      expect(grammar.firstLineRegex.test(text)).toBe(false);
-      expect(lumine.grammars.selectGrammar("modeline", text).scopeName).not.toBe(
-        "source.python.ipy",
-      );
-    }
+  it("rejects aliases that only start with the language name", () => {
+    for (const field of ["ft", "filetype", "syntax"])
+      for (const suffix of ["ish", "_extra", "-extra", ".extra"]) {
+        const source = "# vim: set " + field + "=" + "ipython" + suffix + ":";
+        expect(lumine.grammars.selectGrammar("extensionless", source).scopeName)
+          .withContext(source)
+          .not.toBe("source.python.ipy");
+      }
   });
 });

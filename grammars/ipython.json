@@ -5,10 +5,10 @@
   "parser": "tree-sitter-ipython",
   "injectionNames": ["ipython", "ipy"],
   "firstLineRegex": [
-    "^#![ \\t]*/.*\\bipython[\\d\\.]*\\b",
+    "^#![ \\t]*(?:(?:[^\\s]+[\\\\/])?env(?:\\.exe)?[ \\t]+(?:-S[ \\t]+)?(?:[^\\s]+[\\\\/])?|(?:[^\\s]+[\\\\/])?)ipython(?:[0-9]+(?:\\.[0-9]+)*)?(?:\\.exe)?(?=[ \\t\\r\\n]|$)",
     // Stop at the first Vim and set tokens instead of backtracking over them.
     // \x0a keeps existing shebang prefix line counts unchanged.
-    "(?:^|\\x0a)(?:(?!vim\\b).)*vim\\b(?:(?!\\bset\\b).)*\\bset\\b.*\\b(filetype|ft|syntax)=ipython"
+    "(?:^|\\x0a)(?:(?!vim\\b).)*vim\\b(?:(?!\\bset\\b).)*\\bset\\b.*\\b(filetype|ft|syntax)=ipython(?![\\w.-])"
   ],
   "fileTypes": ["ipy"],
   "comments": {

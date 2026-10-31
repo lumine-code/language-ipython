@@ -7,6 +7,7 @@
     "docs",
     "grammars",
     "lib",
+    "settings",
     "spec",
     "THIRD_PARTY_NOTICES"
   ],
@@ -37,7 +38,8 @@
     "language-shellscript",
     "symbol-tree-sitter",
     "language-hyperlink",
-    "language-todo"
+    "language-todo",
+    "language-source"
   ],
   "scripts": {
     "test": "lumine --test spec",

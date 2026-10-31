@@ -1,0 +1,10 @@
+{
+  ".source.python.ipy": {
+    "editor": {
+      "commentStart": "# ",
+      "commentDelimiters": {
+        "line": "#"
+      }
+    }
+  }
+}
