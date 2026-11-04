@@ -87,3 +87,9 @@ jobs:
         working-directory: lumine
         timeout-minutes: 20
         run: xvfb-run --auto-servernum npm start -- --test ../language-ipython/spec
+      - name: Validate injection policies with worker syntax
+        working-directory: lumine
+        timeout-minutes: 20
+        env:
+          LUMINE_SYNTAX_EXECUTION: worker
+        run: xvfb-run --auto-servernum npm start -- --test ../language-ipython/spec/injection-policy-migration-spec.js

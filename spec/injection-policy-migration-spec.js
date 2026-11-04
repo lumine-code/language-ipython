@@ -26,14 +26,13 @@ describe("Stable injection content edits", () => {
       lumine.grammars.assignLanguageMode(editor.getBuffer(), scope);
       await editor.whenGrammarSettled();
       const buffer = editor.getBuffer();
-      const mode = buffer.getLanguageMode();
-      const layers = () => mode.getAllInjectionLayers().filter((layer) => layer.depth === 1);
-      expect(layers().length).toBeGreaterThan(0);
-      const originals = layers().map((layer) => ({
-        scope: layer.grammar.scopeName,
-        ranges: layer
-          .getCurrentRanges()
-          .map((range) => buffer.markRange(range, { invalidate: "never" })),
+      const layers = () =>
+        editor.analyzeSyntax(require.resolve("./helpers/content-edit-inspection"), "layers");
+      const initial = await layers();
+      expect(initial.length).toBeGreaterThan(0);
+      const originals = initial.map((layer) => ({
+        scope: layer.scopeName,
+        ranges: layer.ranges.map((range) => buffer.markRange(range, { invalidate: "never" })),
       }));
       const start = source.indexOf("sampleword") + 4;
       const point = buffer.positionForCharacterIndex(start);
@@ -45,12 +44,7 @@ describe("Stable injection content edits", () => {
           expect(policy({ before, oldText: "", newText: text, after })).toBe(true);
           buffer.insert(point, text);
           await editor.whenGrammarSettled();
-          expect(
-            layers().map((layer) => [
-              layer.grammar.scopeName,
-              layer.getCurrentRanges().map((r) => r.serialize()),
-            ]),
-          ).toEqual(
+          expect((await layers()).map((layer) => [layer.scopeName, layer.ranges])).toEqual(
             originals.map((item) => [
               item.scope,
               item.ranges.map((marker) => marker.getRange().serialize()),
