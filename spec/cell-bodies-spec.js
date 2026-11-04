@@ -44,6 +44,59 @@ describe("IPython cell bodies", () => {
 
   afterEach(() => editor?.destroy());
 
+  it("preserves injection ownership for admitted word edits across Python lexical contexts", async () => {
+    const policy = require("../lib/python-content-edit-policy");
+    const body = [
+      "result = fn(",
+      "    section = r'Concreting phase',",
+      '    other = f"{value}",',
+      "    args = method(value),",
+      ")",
+      'text = """',
+      "    section = r'Concreting phase',",
+      '"""',
+      "# %% Following",
+      "tail = 1",
+      "",
+    ].join("\n");
+    await setUp(body);
+    const signature = () =>
+      mode
+        .getAllInjectionLayers()
+        .map((layer) => [
+          layer.grammar.scopeName,
+          layer.getCurrentRanges().map((range) => range.serialize()),
+        ]);
+    const expected = signature();
+    let accepted = 0;
+    for (const row of [1, 2, 3, 6]) {
+      const line = editor.lineTextForBufferRow(row);
+      for (let column = 5; column < line.length; column++) {
+        for (const added of ["a", "f", "r", "t", "1", " "]) {
+          const before = line.slice(0, column),
+            after = line.slice(column);
+          if (!policy({ before, oldText: "", newText: added, after })) continue;
+          accepted++;
+          editor.getBuffer().insert([row, column], added);
+          await mode.atGrammarSettlement();
+          expect(signature()).toEqual(expected);
+          expect(
+            root()
+              .descendantsOfType("cell_marker")
+              .map((node) => node.text),
+          ).toEqual(["# %% Following"]);
+          editor.getBuffer().delete([
+            [row, column],
+            [row, column + added.length],
+          ]);
+          await mode.atGrammarSettlement();
+        }
+      }
+    }
+    expect(accepted).toBeGreaterThan(100);
+    expect(editor.getText()).toBe(body);
+  });
+
   it("keeps nested marker text inside template-string interpolation", async () => {
     const source = (prefix) =>
       `value = ${prefix}"""{f"""\n# %% [raw] Inside\n"""}\n"""\n# %% Actual\nx=1\n`;

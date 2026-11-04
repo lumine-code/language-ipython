@@ -1,5 +1,6 @@
 ((python_cell_body) @injection.owner @injection.content
   (#set! injection.language "python")
+  (#set! injection.content-edit-policy "python-words")
   (#set! injection.combined)
   (#set! injection.newlines-between)
   (#set! injection.exclude-children-lines)

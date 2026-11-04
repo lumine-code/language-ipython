@@ -23,6 +23,9 @@
     "tagsQuery": "ipython-tags.scm",
     "foldsQuery": "ipython-folds.scm",
     "indentsQuery": "ipython-indents.scm",
-    "injectionsQuery": "ipython-injections.scm"
+    "injectionsQuery": "ipython-injections.scm",
+    "contentEditPolicies": {
+      "python-words": "../lib/python-content-edit-policy.js"
+    }
   }
 }
