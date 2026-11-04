@@ -12,7 +12,8 @@
   (#eq? @_name "config")
   (#set! injection.language "python")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ; Executable wrappers transform complete payloads, including assignments to
 ; nested magics, shell escapes and postfix help. Each is a separate document.
@@ -21,17 +22,20 @@
   (#any-of? @_name "time" "timeit" "prun" "debug")
   (#set! injection.language "ipython")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic setup: (python_magic_body) @injection.content) @injection.owner
   (#set! injection.language "ipython")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((markdown_cell body: (_) @injection.content) @injection.owner
   (#set! injection.language "markdown")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -39,7 +43,8 @@
   (#any-of? @_name "bash")
   (#set! injection.language "bash")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -47,7 +52,8 @@
   (#any-of? @_name "sh" "sx" "system" "!")
   (#set! injection.language "shell")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -55,7 +61,8 @@
   (#any-of? @_name "html" "HTML")
   (#set! injection.language "html")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -63,7 +70,8 @@
   (#any-of? @_name "markdown")
   (#set! injection.language "markdown")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -71,7 +79,8 @@
   (#any-of? @_name "latex")
   (#set! injection.language "latex")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -79,7 +88,8 @@
   (#any-of? @_name "javascript" "js")
   (#set! injection.language "javascript")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -87,7 +97,8 @@
   (#any-of? @_name "svg" "SVG")
   (#set! injection.language "xml")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -95,7 +106,8 @@
   (#any-of? @_name "perl")
   (#set! injection.language "perl")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_magic
   name: (_) @_name
@@ -103,7 +115,8 @@
   (#any-of? @_name "ruby")
   (#set! injection.language "ruby")
   (#set! injection.include-children)
-  (#set! injection.cover-shallower-scopes))
+  (#set! injection.cover-shallower-scopes)
+  (#set! injection.content-edit-policy "python-words"))
 
 ((cell_marker_name) @injection.owner @injection.content
   (#set! injection.language "hyperlink")
