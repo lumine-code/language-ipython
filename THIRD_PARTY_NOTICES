@@ -2,6 +2,9 @@
 Source: https://github.com/lumine-code/tree-sitter-ipython
 Revision: e91db2279869ddbdd9acdd9813487e042cd3dba0
 
+Parser source: github:lumine-code/tree-sitter-ipython#e91db2279869ddbdd9acdd9813487e042cd3dba0
+Resolved commit: e91db2279869ddbdd9acdd9813487e042cd3dba0
+
 Original file: LICENSE
 
 The MIT License (MIT)
