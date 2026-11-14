@@ -24,6 +24,7 @@
     "foldsQuery": "ipython-folds.scm",
     "indentsQuery": "ipython-indents.scm",
     "injectionsQuery": "ipython-injections.scm",
+    "inputEditPolicy": "../lib/input-edit-policy.js",
     "contentEditPolicies": {
       "python-words": "../lib/python-content-edit-policy.js"
     }
