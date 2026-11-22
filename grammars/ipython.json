@@ -20,6 +20,7 @@
     "grammar": "ipython.wasm",
     "parseBoundariesQuery": "ipython-parse-boundaries.scm",
     "highlightsQuery": "ipython-highlights.scm",
+    "tagsQuerySupportsLocalPath": true,
     "tagsQuery": "ipython-tags.scm",
     "foldsQuery": "ipython-folds.scm",
     "indentsQuery": "ipython-indents.scm",
